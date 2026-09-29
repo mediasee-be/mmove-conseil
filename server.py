@@ -481,10 +481,6 @@ class MmoveHandler(BaseHTTPRequestHandler):
                         <span>🎯 Implantation directe</span>
                     </div>` : ''}
 
-                    <div class="absolute top-2 right-2 bg-black/75 backdrop-blur-sm text-white text-[11px] font-semibold px-2 py-0.5 rounded-full border border-white/20">
-                        8m² Recto/Verso
-                    </div>
-
                     ${distText ? `
                     <div class="absolute bottom-2 left-2 bg-black/75 backdrop-blur-sm text-white text-[11px] font-semibold px-2 py-0.5 rounded-md shadow-sm">
                         ${distText}

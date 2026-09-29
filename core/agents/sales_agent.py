@@ -11,7 +11,7 @@ import ssl
 import urllib.request
 from typing import Dict, Any, List, Optional
 
-DEFAULT_API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyAZOZuTkosufB-LqlKTdptLUg8_vK8cJu8")
+DEFAULT_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
 SALES_SYSTEM_PROMPT = """### 1. RÔLE ET IDENTITÉ
 Tu es l'**Agent Commercial Expert** de la société **M Move** (remorquepublicitaire.be).

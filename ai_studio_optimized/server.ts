@@ -2,7 +2,7 @@ import express from "express";
 import path from "path";
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 
-const API_KEY = process.env.GEMINI_API_KEY || "AIzaSyAZOZuTkosufB-LqlKTdptLUg8_vK8cJu8";
+const API_KEY = process.env.GEMINI_API_KEY || "";
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwjIMSlE_pmjlxnHdiuEB4Kzp_Yfdx_5m5iHvoT9tvQivSF8CrhknFCW_ha92VrRAQ/exec";
 
 // Modèles avec ordre de priorité pour équilibrer les quotas et la vitesse

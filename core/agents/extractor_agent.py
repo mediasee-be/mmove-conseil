@@ -11,7 +11,7 @@ import ssl
 import urllib.request
 from typing import Dict, Any, Optional
 
-DEFAULT_API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyAZOZuTkosufB-LqlKTdptLUg8_vK8cJu8")
+DEFAULT_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
 EXTRACTION_SYSTEM_PROMPT = """Tu es l'agent extracteur NLU haute vitesse du réseau d'affichage publicitaire M Move (Wallonie, Belgique).
 Ta mission est d'analyser le message non structuré d'un utilisateur et d'extraire TOUS les paramètres de recherche sous forme d'un objet JSON STRICT, sans texte superflu.

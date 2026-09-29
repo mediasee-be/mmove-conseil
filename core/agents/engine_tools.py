@@ -324,7 +324,8 @@ class MmoveEngineTools:
         contexte_query: Optional[str] = None,
         max_distance_km: float = 25.0,
         top_k: int = 5,
-        require_availability: bool = True
+        require_availability: bool = True,
+        sort_by_dispo: bool = False
     ) -> List[Dict[str, Any]]:
         """
         Moteur de filtrage et scoring multi-critères.
@@ -467,10 +468,23 @@ class MmoveEngineTools:
             }
             candidates.append(candidate_obj)
 
-        # Tri : les correspondances directes en tête absolue, ordonnées par score composite
+        # 1. Sélection des meilleurs candidats par pertinence géographique et critères
         candidates.sort(key=lambda x: (x.get("is_direct_match", False), x["total_score"]), reverse=True)
+        selected = candidates[:top_k]
 
-        return candidates[:top_k]
+        if sort_by_dispo:
+            # 2. Tri chronologique sur les panneaux retenus (la période la plus proche en premier)
+            # Les correspondances directes sur la localité demandée restent prioritaires
+            selected.sort(
+                key=lambda x: (
+                    not x.get("is_direct_match", False),
+                    x.get("prochaine_dispo") or "9999-99",
+                    -x["total_score"]
+                )
+            )
+            return selected
+        else:
+            return selected
 
     def get_trailer_by_id(self, trailer_id: str) -> Optional[Dict[str, Any]]:
         """Recherche directe par ID de remorque."""

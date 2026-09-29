@@ -34,16 +34,27 @@ Tu es l'**Agent Commercial Expert** de la société **M Move** (remorquepublicit
   - **AUCUNE "Face IN" OU "Face OUT" :** Parle UNIQUEMENT en termes de Direction de circulation (ex: Direction : Namur).
   - **RÉPONSE EN BULLET POINTS :** Présente chaque panneau de manière structurée et aérée.
 
-* **STRUCTURE EXACTE PAR EMPLACEMENT :**
+* **STRUCTURE PAR EMPLACEMENT EN RECHERCHE CLASSIQUE :**
   • [#ID - Ville - Localisation ↗️](lien)
     - Disponible dès : Mois Année
     - Direction : [Direction]
     - Trafic : [frequentation] véh./jour (~[ots] OTS/mois)
     - Contexte : [Contexte de visibilité court]
 
-* **DEMANDE DE DISPONIBILITÉ :**
-  - Phrase d'intro sobre (ex: "Voici les disponibilités pour vos remorques à [Lieu] :").
-  - Liste directe des emplacements selon le format ci-dessus.
+* **DEMANDE DE DISPONIBILITÉ / PROCHAINE DISPO (RÈGLE OBLIGATOIRE) :**
+  - Trie TOUJOURS les emplacements par ordre chronologique strict (la date de disponibilité la plus proche en premier : ex: Décembre 2026 avant Février 2027).
+  - Regroupe par période (Mois Année) sous ce format sobre et aéré :
+  
+    [Mois Année] :
+    • [#ID - Ville - Localisation ↗️](lien) — Direction [Direction]
+      - Trafic : [frequentation] véh./jour (~[ots] OTS/mois)
+      - Contexte : [Contexte court]
+
+    Exemple :
+    Décembre 2026 :
+    • [#343 - Namur - Wierde ↗️](https://remorquepublicitaire.be/remorque/343) — Direction E411
+      - Trafic : 34 500 véh./jour (~1 397 250 OTS/mois)
+      - Contexte : Pôle commercial de Naninne (sortie E411)
 
 ### 4. CONSEILS CRÉATIFS & VISUELS
 * **RÈGLE STRICTE :** Ne donne de conseils créatifs et visuels QUE si le prospect pose explicitement une question sur la création, le visuel, le graphisme, la conception de l'affiche ou les formats !
@@ -120,6 +131,12 @@ class SalesAgent:
                 "photo_url": p.get("photo_url")
             })
 
+        intent = extracted_info.get("intent", "")
+        msg_lower = (user_message or "").lower()
+        is_dispo_query = intent == "check_availability" or any(w in msg_lower for w in ["dispo", "libre", "quand", "prochaine", "prochaines", "date"])
+        if is_dispo_query:
+            candidate_panels = sorted(candidate_panels, key=lambda x: x.get("prochaine_dispo") or "9999-99")
+
         user_prompt_content = f"""
 Demande du prospect : "{user_message}"
 
@@ -136,9 +153,15 @@ Sélection des Meilleurs Panneaux Qualifiés ({len(candidate_panels)} retenus) :
 
 Rédige maintenant ta réponse commerciale selon les règles strictes suivantes :
 1. Va droit à l'essentiel, sous forme de bullet points clairs, sobres et aérés.
-2. PAS de gras partout : ne mets JAMAIS les étiquettes en gras (écris "Disponible dès :", "Direction :", "Trafic :", "Contexte :" sans astérisques de gras).
+2. PAS de gras partout : ne mets JAMAIS les étiquettes en gras (écris "Direction :", "Trafic :", "Contexte :" sans astérisques de gras).
 3. AUCUNE mention "Implantation directe".
 4. AUCUNE mention "Face IN" ou "Face OUT" : uniquement la Direction (ex: Direction : Namur).
+5. Pour les demandes de disponibilité ("prochaine dispo", "quand", "dispo") :
+   - Trie OBLIGATOIREMENT les réponses par ordre chronologique (la période la plus proche en premier).
+   - Regroupe ou présente par période en tête (ex: "Décembre 2026 :"), avec sous chaque période les emplacements correspondants :
+     • [#ID - Ville - Localisation ↗️](lien) — Direction [Direction]
+       - Trafic : [frequentation] véh./jour (~[ots] OTS/mois)
+       - Contexte : [contexte court]
 """
 
         # Construction de l'historique de conversation
@@ -195,33 +218,63 @@ Rédige maintenant ta réponse commerciale selon les règles strictes suivantes 
         
         loc_list = extracted.get("locations", [])
         loc_str = f" à {', '.join(loc_list)}" if loc_list else ""
+        user_mentions_face = any(w in msg_lower for w in ["face in", "face out", "faces in", "faces out", "face a", "face b", "face "])
         
         if is_dispo_query:
+            # Priorité aux correspondances directes sur la localité, puis tri par date chronologique (plus proche en premier)
+            has_direct = any(p.get("is_direct_match") for p in panels)
+            if has_direct:
+                panels_sorted = sorted(panels, key=lambda x: (not x.get("is_direct_match", False), x.get("prochaine_dispo") or "9999-99"))
+            else:
+                panels_sorted = sorted(panels, key=lambda x: x.get("prochaine_dispo") or "9999-99")
             intro = f"Voici les disponibilités pour vos remorques 8m²{loc_str} :\n"
+            lines = [intro]
+
+            current_period = None
+            for p in panels_sorted:
+                p_period = p.get("prochaine_dispo_human") or format_period_human(p.get("prochaine_dispo")) or "Sur demande"
+                if not user_mentions_face:
+                    p_period = re.sub(r"\s*\(Face[^\)]*\)", "", str(p_period), flags=re.IGNORECASE).strip()
+
+                if p_period != current_period:
+                    current_period = p_period
+                    lines.append(f"\n{current_period} :")
+
+                dist_str = f" (à {p['distance_km']} km)" if p.get("distance_km") and p.get("distance_km") > 0 else ""
+                freq_str = f"{p.get('frequentation_jour', 0):,}".replace(",", " ")
+                ots_str = f"{p.get('ots_mensuel', 0):,}".replace(",", " ")
+                direction = p.get("direction_in") or p.get("direction_out") or "Double sens"
+
+                contexte = p.get('contexte_visibilite') or ''
+                contexte_clean = re.sub(r"^\[Zoning\]\s*", "", contexte)
+
+                lines.append(
+                    f"• [#{p['id']} - {p['ville']} - {p['localisation']} ↗️]({p['lien']}) — Direction {direction}{dist_str}\n"
+                    f"  - Trafic : {freq_str} véh./jour (~{ots_str} OTS/mois)\n"
+                    f"  - Contexte : {contexte_clean}"
+                )
         else:
             intro = f"Voici la sélection d'emplacements 8m²{loc_str} :\n"
+            lines = [intro]
+            for p in panels:
+                dist_str = f" (à {p['distance_km']} km)" if p.get("distance_km") and p.get("distance_km") > 0 else ""
+                freq_str = f"{p.get('frequentation_jour', 0):,}".replace(",", " ")
+                ots_str = f"{p.get('ots_mensuel', 0):,}".replace(",", " ")
+                direction = p.get("direction_in") or p.get("direction_out") or "Double sens"
+                dispo_humaine = p.get("prochaine_dispo_label") or p.get("prochaine_dispo_human") or p.get("prochaine_dispo", "Disponible")
+                if not user_mentions_face:
+                    dispo_humaine = re.sub(r"\s*\(Face[^\)]*\)", "", str(dispo_humaine), flags=re.IGNORECASE).strip()
 
-        lines = [intro]
-        for p in panels:
-            dist_str = f" (à {p['distance_km']} km)" if p.get("distance_km") and p.get("distance_km") > 0 else ""
-            freq_str = f"{p.get('frequentation_jour', 0):,}".replace(",", " ")
-            ots_str = f"{p.get('ots_mensuel', 0):,}".replace(",", " ")
-            direction = p.get("direction_in") or p.get("direction_out") or "Double sens"
-            dispo_humaine = p.get("prochaine_dispo_label") or p.get("prochaine_dispo_human") or p.get("prochaine_dispo", "Disponible")
-            user_mentions_face = any(w in msg_lower for w in ["face in", "face out", "faces in", "faces out", "face a", "face b", "face "])
-            if not user_mentions_face:
-                dispo_humaine = re.sub(r"\s*\(Face[^\)]*\)", "", str(dispo_humaine), flags=re.IGNORECASE).strip()
+                contexte = p.get('contexte_visibilite') or ''
+                contexte_clean = re.sub(r"^\[Zoning\]\s*", "", contexte)
 
-            contexte = p.get('contexte_visibilite') or ''
-            contexte_clean = re.sub(r"^\[Zoning\]\s*", "", contexte)
-
-            lines.append(
-                f"• [#{p['id']} - {p['ville']} - {p['localisation']} ↗️]({p['lien']})\n"
-                f"  - Disponible dès : {dispo_humaine}\n"
-                f"  - Direction : {direction}\n"
-                f"  - Trafic : {freq_str} véh./jour (~{ots_str} OTS/mois){dist_str}\n"
-                f"  - Contexte : {contexte_clean}\n"
-            )
+                lines.append(
+                    f"• [#{p['id']} - {p['ville']} - {p['localisation']} ↗️]({p['lien']})\n"
+                    f"  - Disponible dès : {dispo_humaine}\n"
+                    f"  - Direction : {direction}\n"
+                    f"  - Trafic : {freq_str} véh./jour (~{ots_str} OTS/mois){dist_str}\n"
+                    f"  - Contexte : {contexte_clean}\n"
+                )
 
         is_creation_query = any(w in msg_lower for w in ["créat", "creat", "visuel", "affiche", "graphi", "design"])
         if is_creation_query:

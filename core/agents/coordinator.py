@@ -115,6 +115,10 @@ class CoordinatorAgent:
             # Recherche géographique & critères (search_panels ou check_availability par zone)
             target_periods = extracted.get("target_periods", [])
             req_dispo = len(target_periods) > 0
+            is_dispo_query = (
+                intent == "check_availability"
+                or any(w in user_message.lower() for w in ["dispo", "dispos", "disponibilit", "libre", "libres", "quand", "prochain", "prochaine", "prochaines", "date", "dates"])
+            )
             candidate_panels = self.engine.search_and_rank(
                 locations=extracted.get("locations"),
                 axes=extracted.get("axes"),
@@ -123,7 +127,8 @@ class CoordinatorAgent:
                 direction=extracted.get("direction"),
                 contexte_query=extracted.get("contexte_pref") or extracted.get("sector"),
                 top_k=extracted.get("count_requested", 3),
-                require_availability=req_dispo
+                require_availability=req_dispo,
+                sort_by_dispo=is_dispo_query
             )
 
         timing["engine_ms"] = round((time.time() - t0) * 1000, 1)

@@ -8,6 +8,7 @@ Mesure les temps d'exécution et renvoie les données enrichies pour le frontend
 """
 
 import time
+import re
 from typing import Dict, Any, List, Optional
 from .engine_tools import MmoveEngineTools, format_period_human, get_friendly_dispo_label
 from .extractor_agent import ExtractorAgent
@@ -139,11 +140,15 @@ class CoordinatorAgent:
         timing["total_ms"] = round((time.time() - start_total) * 1000, 1)
 
         # 4. Normalisation des panneaux pour le frontend (cartes interactives)
+        user_mentions_face = any(w in user_message.lower() for w in ["face in", "face out", "faces in", "faces out", "face a", "face b", "face "])
         frontend_panels = []
         for p in candidate_panels:
             dir_str = p.get("direction_in") or p.get("direction_out") or "Double sens"
             avail_months = p.get("availability", {}).get("available_months", [])
             friendly_dispo = p.get("prochaine_dispo_label") or p.get("prochaine_dispo_human") or format_period_human(p.get("prochaine_dispo"))
+            if not user_mentions_face and friendly_dispo:
+                friendly_dispo = re.sub(r"\s*\(Face[^\)]*\)", "", str(friendly_dispo), flags=re.IGNORECASE).strip()
+
             dispo_label = ", ".join([m["period_human"] for m in avail_months]) if avail_months else friendly_dispo
             
             frontend_panels.append({
@@ -153,7 +158,7 @@ class CoordinatorAgent:
                 "localisation": p["localisation"],
                 "axe_routier": p.get("axe_routier", ""),
                 "direction": dir_str,
-                "face": "IN/OUT",
+                "face": p.get("face") if user_mentions_face else None,
                 "distance_km": p.get("distance_km"),
                 "frequentation": p.get("frequentation_jour"),
                 "ots": p.get("ots_mensuel"),

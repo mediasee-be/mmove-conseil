@@ -119,18 +119,20 @@ def format_period_human(period_str: str) -> str:
         return f"{MONTH_MAP[parts[1]]} {parts[0]}"
     return period_str
 
-def get_friendly_dispo_label(trailer_dict: Dict[str, Any]) -> str:
-    """Produit un libellé clair et lisible pour le client (ex: Dès Décembre 2026 (Face OUT))"""
+def get_friendly_dispo_label(trailer_dict: Dict[str, Any], include_faces: bool = False) -> str:
+    """Produit un libellé clair et lisible pour le client (ex: Dès Décembre 2026).
+    Ne mentionne les faces que si include_faces=True.
+    """
     p_any = trailer_dict.get("prochaine_dispo")
-    p_in = trailer_dict.get("prochaine_dispo_in")
-    p_out = trailer_dict.get("prochaine_dispo_out")
-
     if not p_any or p_any == "Sur demande (+1 an)":
         return "Sur demande (+1 an)"
 
     h_any = format_period_human(p_any)
-    h_in = format_period_human(p_in) if p_in else None
-    h_out = format_period_human(p_out) if p_out else None
+    if not include_faces:
+        return h_any
+
+    p_in = trailer_dict.get("prochaine_dispo_in")
+    p_out = trailer_dict.get("prochaine_dispo_out")
 
     if p_in == p_out and p_in == p_any:
         return f"{h_any} (Faces IN & OUT)"

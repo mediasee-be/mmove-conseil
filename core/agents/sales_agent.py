@@ -6,6 +6,7 @@ et les conseils d'impact visuel M Move.
 """
 
 import os
+import re
 import json
 import ssl
 import urllib.request
@@ -39,10 +40,13 @@ Tu es l'**Agent Commercial Expert** de la société **M Move** (remorquepublicit
       `* 🚗 **Impact :** [frequentation_jour] véh./jour (~[ots_mensuel] OTS/mois)`
       `* 📍 **Direction :** [direction]`
       `* 👁️ **Contexte :** [contexte_visibilite]`
-  * Ne cite pas les acronymes de régie bruts aux clients mais formule clairement (ex: "Disponible dès Décembre 2026 (Face OUT)").
+  * **RÈGLE OBLIGATOIRE SUR LES FACES ET DIRECTIONS (MANDAT STRICT) :**
+    - Ne mentionne JAMAIS les termes techniques régie "Face IN", "Face OUT", "Face A", "Face B" ou "Faces" sauf si l'utilisateur les évoque explicitement lui-même dans sa question.
+    - Exprime TOUJOURS le sens de circulation et l'orientation UNIQUEMENT en terme de **Direction** (ex: `📍 Direction : Namur`, `📍 Direction : E411 / Luxembourg`, `📍 Direction : Centre-ville`).
+    - Pour les disponibilités, formule simplement la date sans mention de face (ex: `📅 **Disponible dès :** **Décembre 2026**`), SANS JAMAIS ajouter "(Face OUT)" ou "(Face IN)".
 
 * **SCÉNARIO C : Demande de disponibilité ("Quand est-ce libre ?")**
-  * L'information N°1 à mettre en valeur immédiatement est la date de disponibilité : `📅 **Disponible dès : [prochaine_dispo_mois]**`.
+  * L'information N°1 à mettre en valeur immédiatement est la date de disponibilité : `📅 **Disponible dès : [prochaine_dispo_mois]**` (sans mention de face, uniquement la direction de flux).
 
 * **LOCALITÉS SECONDAIRES & VILLAGES (ex: Wierde, Naninne, Sclayn, Haute Bise, etc.)** :
   * Si le client demande une localité ou village précis, mets en exergue le panneau qui y est implanté directement : `🎯 **Implantation directe à [Localité]**`.
@@ -91,19 +95,32 @@ class SalesAgent:
         conversation_history: Optional[List[Dict[str, Any]]] = None
     ) -> str:
         """Génère la recommandation commerciale sur mesure."""
+        user_mentions_face = any(w in user_message.lower() for w in ["face in", "face out", "faces in", "faces out", "face a", "face b", "face "])
+        
         # Préparer le résumé synthétique des panneaux qualifiés
         panels_context = []
         for p in candidate_panels:
-            avail_months_str = ", ".join(
-                [f"{m['period_human']} ({m['face']})" for m in p.get("availability", {}).get("available_months", [])]
-            )
+            if user_mentions_face:
+                avail_months_str = ", ".join(
+                    [f"{m['period_human']} ({m['face']})" for m in p.get("availability", {}).get("available_months", [])]
+                )
+            else:
+                avail_months_str = ", ".join(
+                    [f"{m['period_human']}" for m in p.get("availability", {}).get("available_months", [])]
+                )
+
             dispo_human = p.get("prochaine_dispo_label") or p.get("prochaine_dispo_human") or p.get("prochaine_dispo", "Disponible")
+            if not user_mentions_face:
+                dispo_human = re.sub(r"\s*\(Face[^\)]*\)", "", str(dispo_human), flags=re.IGNORECASE).strip()
+
+            dir_str = p.get("direction_in") or p.get("direction_out") or "Double sens"
+
             panels_context.append({
                 "id": p.get("id"),
                 "ville": p.get("ville"),
                 "localisation": p.get("localisation"),
                 "province": p.get("province", ""),
-                "direction": p.get("direction_in") or p.get("direction_out") or "Double sens",
+                "direction": dir_str,
                 "distance_km": p.get("distance_km"),
                 "frequentation_jour": f"{p.get('frequentation_jour', 0):,}".replace(",", " "),
                 "ots_mensuel": f"{p.get('ots_mensuel', 0):,}".replace(",", " "),
@@ -130,7 +147,9 @@ Sélection des Meilleurs Panneaux Qualifiés ({len(candidate_panels)} retenus) :
 {json.dumps(panels_context, ensure_ascii=False, indent=2)}
 
 Rédige maintenant ta réponse commerciale percutante, chaleureuse et structurée conformément aux règles M Move.
-Important : Mentionne explicitement pour chaque emplacement la prochaine date de disponibilité dès le début de chaque puce !
+Important :
+1. Mentionne explicitement pour chaque emplacement la prochaine date de disponibilité dès le début de chaque puce !
+2. Ne mentionne AUCUNE Face IN ou Face OUT : exprime UNIQUEMENT l'orientation en termes de Direction (ex: Direction : Namur).
 """
 
         # Construction de l'historique de conversation
@@ -200,6 +219,9 @@ Important : Mentionne explicitement pour chaque emplacement la prochaine date de
             ots_str = f"{p.get('ots_mensuel', 0):,}".replace(",", " ")
             direction = p.get("direction_in") or p.get("direction_out") or "Double sens"
             dispo_humaine = p.get("prochaine_dispo_label") or p.get("prochaine_dispo_human") or p.get("prochaine_dispo", "Disponible")
+            user_mentions_face = any(w in msg_lower for w in ["face in", "face out", "faces in", "faces out", "face a", "face b", "face "])
+            if not user_mentions_face:
+                dispo_humaine = re.sub(r"\s*\(Face[^\)]*\)", "", str(dispo_humaine), flags=re.IGNORECASE).strip()
 
             direct_tag = "🎯 **Implantation directe** — " if p.get("is_direct_match") else ""
             

@@ -466,9 +466,6 @@ class MmoveHandler(BaseHTTPRequestHandler):
             const distText = (p.distance_km !== null && p.distance_km !== undefined) ? `📍 à ${p.distance_km} km` : null;
             const freqFormatted = p.frequentation ? Number(p.frequentation).toLocaleString('fr-FR') : null;
             const otsFormatted = p.ots ? Number(p.ots).toLocaleString('fr-FR') : null;
-            const faceColor = (p.face === 'IN') 
-                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
-                : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 border-indigo-300 dark:border-indigo-800';
 
             return `
             <div class="bg-white dark:bg-slate-800/95 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/80 overflow-hidden hover:shadow-md hover:border-[#F4920D]/60 transition-all text-sm flex flex-col group">
@@ -503,7 +500,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
                 <!-- 2. Corps de la carte -->
                 <div class="p-4 space-y-3 flex-1 flex flex-col justify-between">
                     <div>
-                        <!-- En-tête : Titre & Badge Face -->
+                        <!-- En-tête : Titre & Badge Direction -->
                         <div class="flex justify-between items-start gap-2 mb-1">
                             <div>
                                 <a href="${linkUrl}" target="_blank" rel="noopener noreferrer" 
@@ -513,9 +510,14 @@ class MmoveHandler(BaseHTTPRequestHandler):
                                 </a>
                                 ${p.localisation ? `<p class="text-xs text-[#666] dark:text-slate-400 mt-0.5 font-medium">${p.localisation}</p>` : ''}
                             </div>
-                            <span class="px-2 py-0.5 rounded-full text-xs font-bold shrink-0 border ${faceColor}">
-                                Face ${p.face || 'IN/OUT'}
-                            </span>
+                            ${p.direction ? `
+                            <span class="px-2.5 py-1 rounded-full text-xs font-bold shrink-0 bg-[#F4920D]/10 text-[#F4920D] border border-[#F4920D]/20 flex items-center gap-1" title="Direction de visibilité">
+                                <i class="fa-solid fa-compass text-[#FF5B34] text-[10px]"></i>
+                                <span>Dir. ${p.direction}</span>
+                            </span>` : `
+                            <span class="px-2 py-0.5 rounded-full text-xs font-semibold shrink-0 bg-slate-100 dark:bg-slate-800 text-[#666] dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                8m²
+                            </span>`}
                         </div>
 
                         <!-- Badge Disponibilité Mis en Valeur -->
@@ -526,7 +528,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
                         </div>` : ''}
 
                         <!-- Axe routier & Direction -->
-                        <div class="space-y-1 text-[#666] dark:text-slate-300 text-xs mt-2.5">
+                        <div class="space-y-1.5 text-[#666] dark:text-slate-300 text-xs mt-2.5">
                             ${p.axe_routier ? `
                             <div class="flex items-center space-x-2">
                                 <i class="fa-solid fa-road text-slate-400 dark:text-slate-500 w-3.5 text-center"></i>
@@ -535,7 +537,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
                             ${p.direction ? `
                             <div class="flex items-center space-x-2">
                                 <i class="fa-solid fa-compass text-[#FF5B34] w-3.5 text-center"></i>
-                                <span>Direction <span class="font-medium text-slate-700 dark:text-slate-200">${p.direction}</span></span>
+                                <span>Sens de visibilité : <span class="font-bold text-slate-800 dark:text-slate-100">Direction ${p.direction}</span></span>
                             </div>` : ''}
                         </div>
 

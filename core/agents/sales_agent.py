@@ -34,12 +34,14 @@ Tu es l'**Agent Commercial Expert** de la société **M Move** (remorquepublicit
   - **AUCUNE "Face IN" OU "Face OUT" :** Parle UNIQUEMENT en termes de Direction de circulation (ex: Direction : Namur).
   - **RÉPONSE EN BULLET POINTS :** Présente chaque panneau de manière structurée et aérée.
 
-* **STRUCTURE PAR EMPLACEMENT EN RECHERCHE CLASSIQUE :**
-  • [#ID - Ville - Localisation ↗️](lien)
-    - Disponible dès : Mois Année
-    - Direction : [Direction]
-    - Trafic : [frequentation] véh./jour (~[ots] OTS/mois)
-    - Contexte : [Contexte de visibilité court]
+* **DEMANDE DE LOCALISATION ("remorques à...", "panneaux à...", recherche par ville) :**
+  - Trie TOUJOURS les emplacements par DISTANCE CROISSANTE (le plus proche en premier : 0 km, 0.14 km, 1.28 km, etc.).
+  - Indique la distance entre parenthèses après la direction si supérieure à 0 (ex: "à 0.14 km", "à 1.28 km").
+  - Structure directe en bullet points sans gras sur les étiquettes :
+    • [#ID - Ville - Localisation ↗️](lien) — Direction [Direction] (à [X] km)
+      - Disponible dès : Mois Année
+      - Trafic : [frequentation] véh./jour (~[ots] OTS/mois)
+      - Contexte : [Contexte de visibilité court]
 
 * **DEMANDE DE DISPONIBILITÉ / PROCHAINE DISPO (RÈGLE OBLIGATOIRE) :**
   - Trie TOUJOURS les emplacements par ordre chronologique strict (la date de disponibilité la plus proche en premier : ex: Décembre 2026 avant Février 2027).
@@ -162,6 +164,9 @@ Rédige maintenant ta réponse commerciale selon les règles strictes suivantes 
      • [#ID - Ville - Localisation ↗️](lien) — Direction [Direction]
        - Trafic : [frequentation] véh./jour (~[ots] OTS/mois)
        - Contexte : [contexte court]
+6. Pour toute demande de localisation ("remorques à...", "panneaux à...", recherche par ville) :
+   - Trie OBLIGATOIREMENT les réponses par DISTANCE CROISSANTE (le plus proche en km en premier : 0 km, 0.14 km, 1.28 km...).
+   - Indique clairement la distance (ex: à 0.14 km, à 1.28 km) après la direction.
 """
 
         # Construction de l'historique de conversation
@@ -254,10 +259,23 @@ Rédige maintenant ta réponse commerciale selon les règles strictes suivantes 
                     f"  - Contexte : {contexte_clean}"
                 )
         else:
+            loc_list = extracted.get("locations", [])
+            if loc_list:
+                # Tri strict par distance croissante (le plus proche en premier)
+                panels = sorted(
+                    panels,
+                    key=lambda x: (
+                        x.get("distance_km") if x.get("distance_km") is not None else 9999.0,
+                        not x.get("is_direct_match", False),
+                        -x.get("frequentation_jour", 0)
+                    )
+                )
+
             intro = f"Voici la sélection d'emplacements 8m²{loc_str} :\n"
             lines = [intro]
             for p in panels:
-                dist_str = f" (à {p['distance_km']} km)" if p.get("distance_km") and p.get("distance_km") > 0 else ""
+                dist_km = p.get("distance_km")
+                dist_str = f" (à {dist_km} km)" if (dist_km is not None and dist_km > 0) else ""
                 freq_str = f"{p.get('frequentation_jour', 0):,}".replace(",", " ")
                 ots_str = f"{p.get('ots_mensuel', 0):,}".replace(",", " ")
                 direction = p.get("direction_in") or p.get("direction_out") or "Double sens"
@@ -269,10 +287,9 @@ Rédige maintenant ta réponse commerciale selon les règles strictes suivantes 
                 contexte_clean = re.sub(r"^\[Zoning\]\s*", "", contexte)
 
                 lines.append(
-                    f"• [#{p['id']} - {p['ville']} - {p['localisation']} ↗️]({p['lien']})\n"
+                    f"• [#{p['id']} - {p['ville']} - {p['localisation']} ↗️]({p['lien']}) — Direction {direction}{dist_str}\n"
                     f"  - Disponible dès : {dispo_humaine}\n"
-                    f"  - Direction : {direction}\n"
-                    f"  - Trafic : {freq_str} véh./jour (~{ots_str} OTS/mois){dist_str}\n"
+                    f"  - Trafic : {freq_str} véh./jour (~{ots_str} OTS/mois)\n"
                     f"  - Contexte : {contexte_clean}\n"
                 )
 

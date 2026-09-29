@@ -393,6 +393,9 @@ class MmoveEngineTools:
                 if valid_dists:
                     min_dist = min(valid_dists)
 
+            if min_dist is None and has_direct_physical_match:
+                min_dist = 0.0
+
             # Si des lieux sont demandés et que la remorque est hors rayon, on exclut
             # (Ne JAMAIS exclure une remorque qui matche directement par le texte ou par l'axe)
             if target_coords and min_dist is not None:
@@ -468,23 +471,34 @@ class MmoveEngineTools:
             }
             candidates.append(candidate_obj)
 
-        # 1. Sélection des meilleurs candidats par pertinence géographique et critères
-        candidates.sort(key=lambda x: (x.get("is_direct_match", False), x["total_score"]), reverse=True)
-        selected = candidates[:top_k]
-
         if sort_by_dispo:
-            # 2. Tri chronologique sur les panneaux retenus (la période la plus proche en premier)
-            # Les correspondances directes sur la localité demandée restent prioritaires
+            # 1. Demande de disponibilité : Sélection géographique puis tri chronologique (plus proche dans le temps en premier)
+            candidates.sort(key=lambda x: (x.get("is_direct_match", False), x["total_score"]), reverse=True)
+            selected = candidates[:top_k]
             selected.sort(
                 key=lambda x: (
                     not x.get("is_direct_match", False),
                     x.get("prochaine_dispo") or "9999-99",
+                    x.get("distance_km") if x.get("distance_km") is not None else 9999.0,
                     -x["total_score"]
                 )
             )
             return selected
+        elif clean_loc_queries or target_coords:
+            # 2. Demande de localisation : Tri STRICT suivant la distance croissante (le plus proche en km en premier)
+            # En cas d'égalité sur la distance : priorité à la correspondance directe sur la ville puis score composite
+            candidates.sort(
+                key=lambda x: (
+                    x.get("distance_km") if x.get("distance_km") is not None else 9999.0,
+                    not x.get("is_direct_match", False),
+                    -x["total_score"]
+                )
+            )
+            return candidates[:top_k]
         else:
-            return selected
+            # 3. Tri classique : score composite
+            candidates.sort(key=lambda x: (x.get("is_direct_match", False), x["total_score"]), reverse=True)
+            return candidates[:top_k]
 
     def get_trailer_by_id(self, trailer_id: str) -> Optional[Dict[str, Any]]:
         """Recherche directe par ID de remorque."""

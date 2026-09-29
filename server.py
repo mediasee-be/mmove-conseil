@@ -34,9 +34,13 @@ class MmoveHandler(BaseHTTPRequestHandler):
         if self.path == "/api/health":
             self._set_headers(200)
             sync_info = coordinator.sync.get_summary()
+            trailers_count = len(coordinator.engine.trailers)
+            faces_count = trailers_count * 2
             res = {
                 "status": "ok",
-                "trailers_count": len(coordinator.engine.trailers),
+                "trailers_count": trailers_count,
+                "panneaux_count": trailers_count,
+                "faces_count": faces_count,
                 "geocache_entries": len(coordinator.engine.geocache),
                 "synchronisation": sync_info
             }
@@ -241,7 +245,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
             <!-- Badge & Description -->
             <div class="flex items-center gap-2">
                 <span class="text-xs px-2.5 py-0.5 rounded-full bg-[#F4920D]/10 text-[#F4920D] font-bold border border-[#F4920D]/20">Conseil 8m²</span>
-                <span class="text-xs text-[#666] dark:text-slate-400 font-medium hidden sm:inline">132 Remorques Wallonie</span>
+                <span id="headerPanelCount" class="text-xs text-[#666] dark:text-slate-400 font-medium hidden sm:inline">133 Panneaux &middot; 266 Faces Wallonie</span>
             </div>
         </div>
 
@@ -249,7 +253,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
             <!-- Sync Live Badge -->
             <div id="statsBadge" class="hidden sm:flex text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-xl text-[#666] dark:text-slate-300 items-center space-x-2 shadow-inner">
                 <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>132 remorques actives</span>
+                <span>133 panneaux (266 faces)</span>
             </div>
 
             <!-- Sync Button -->
@@ -276,7 +280,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
                 <p class="font-bold text-[#F4920D] mb-2 flex items-center gap-1.5">
                     <i class="fa-solid fa-sparkles text-[#FF5B34]"></i> Conseiller Commercial M Move
                 </p>
-                Bonjour ! Je suis votre conseiller expert pour le réseau de remorques publicitaires 8m² M Move en Wallonie.<br><br>
+                Bonjour ! Je suis votre conseiller expert pour le réseau de panneaux publicitaires 8m² M Move en Wallonie (133 panneaux, 266 faces stratégiques).<br><br>
                 Quelle zone, quel axe routier ou quelle période souhaitez-vous couvrir pour votre prochaine campagne ?
             </div>
         </div>
@@ -296,7 +300,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
                 <button type="button" onclick="sendSuggestion('Concessionnaire auto sur la N4 ou E411')" class="shrink-0 px-3 py-1 rounded-full bg-slate-100 hover:bg-[#F4920D]/10 dark:bg-slate-800 dark:hover:bg-[#F4920D]/10 text-[#666] dark:text-slate-200 hover:text-[#F4920D] dark:hover:text-[#F4920D] hover:border-[#F4920D]/40 transition border border-slate-200 dark:border-slate-700">
                     🚗 Concession auto sur N4 / E411
                 </button>
-                <button type="button" onclick="sendSuggestion('Disponibilités remorques à Wierde et Naninne')" class="shrink-0 px-3 py-1 rounded-full bg-slate-100 hover:bg-[#F4920D]/10 dark:bg-slate-800 dark:hover:bg-[#F4920D]/10 text-[#666] dark:text-slate-200 hover:text-[#F4920D] dark:hover:text-[#F4920D] hover:border-[#F4920D]/40 transition border border-slate-200 dark:border-slate-700">
+                <button type="button" onclick="sendSuggestion('Disponibilités panneaux à Wierde et Naninne')" class="shrink-0 px-3 py-1 rounded-full bg-slate-100 hover:bg-[#F4920D]/10 dark:bg-slate-800 dark:hover:bg-[#F4920D]/10 text-[#666] dark:text-slate-200 hover:text-[#F4920D] dark:hover:text-[#F4920D] hover:border-[#F4920D]/40 transition border border-slate-200 dark:border-slate-700">
                     📅 Disponibilités Wierde & Naninne
                 </button>
                 <button type="button" onclick="sendSuggestion('Quand est libre le panneau #114 ?')" class="shrink-0 px-3 py-1 rounded-full bg-slate-100 hover:bg-[#F4920D]/10 dark:bg-slate-800 dark:hover:bg-[#F4920D]/10 text-[#666] dark:text-slate-200 hover:text-[#F4920D] dark:hover:text-[#F4920D] hover:border-[#F4920D]/40 transition border border-slate-200 dark:border-slate-700">
@@ -309,7 +313,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
 
             <!-- Formulaire de saisie -->
             <form id="chatForm" class="flex items-end space-x-2.5">
-                <textarea id="messageInput" rows="1" placeholder="Posez votre question (ex: Remorques disponibles à Wavre en septembre)..." 
+                <textarea id="messageInput" rows="1" placeholder="Posez votre question (ex: Panneaux disponibles à Wavre en septembre)..." 
                     class="flex-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#F4920D] focus:border-[#F4920D] text-slate-900 dark:text-white placeholder-slate-400 resize-none max-h-36 leading-normal" required></textarea>
                 <button type="submit" id="sendBtn" class="bg-gradient-to-r from-[#F4920D] to-[#FF5B34] hover:opacity-95 active:scale-95 text-white px-5 py-3 rounded-2xl font-semibold text-sm transition shadow-sm flex items-center justify-center shrink-0 disabled:opacity-50 disabled:cursor-not-allowed">
                     <i class="fa-solid fa-paper-plane text-sm"></i>
@@ -372,12 +376,22 @@ class MmoveHandler(BaseHTTPRequestHandler):
             try {
                 const r = await fetch('/api/health');
                 const data = await r.json();
+                const pCount = data.panneaux_count || data.trailers_count || 133;
+                const fCount = data.faces_count || (pCount * 2);
                 const s = data.synchronisation;
+
+                // Mise à jour synchrone de l'en-tête gauche
+                const headerCountEl = document.getElementById('headerPanelCount');
+                if (headerCountEl) {
+                    headerCountEl.innerHTML = `${pCount} Panneaux &middot; ${fCount} Faces Wallonie`;
+                }
+
                 document.getElementById('statsBadge').innerHTML = `
                     <span class="flex items-center space-x-1.5">
                         <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                        <span class="font-bold text-slate-900 dark:text-white">${data.trailers_count}</span>
-                        <span class="text-slate-500 dark:text-slate-400">remorques</span>
+                        <span class="font-bold text-slate-900 dark:text-white">${pCount}</span>
+                        <span class="text-slate-500 dark:text-slate-400">panneaux</span>
+                        <span class="text-xs text-[#F4920D] font-semibold">(${fCount} faces)</span>
                     </span>
                     <span class="text-slate-300 dark:text-slate-600">|</span>
                     <span title="Vérification horaire des réservations">
@@ -389,7 +403,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
                     </span>
                 `;
             } catch (e) {
-                document.getElementById('statsBadge').innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span>132 remorques &middot; Synchronisation active</span>';
+                document.getElementById('statsBadge').innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span>133 panneaux (266 faces) &middot; Synchronisation active</span>';
             }
         }
         loadSyncStatus();

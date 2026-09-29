@@ -206,7 +206,9 @@ class SyncManager:
                 "prochaine_verification": f"dans {next_panels_days} jours",
                 "derniere_mise_a_jour": datetime.fromtimestamp(self.state["last_panels_updated"]).strftime("%Y-%m-%d %H:%M:%S") if self.state.get("last_panels_updated") else "Initiale"
             },
-            "total_remorques_actives": len(self.engine_tools.trailers) if self.engine_tools else 132,
+            "total_remorques_actives": len(self.engine_tools.trailers) if self.engine_tools else 133,
+            "total_panneaux_actifs": len(self.engine_tools.trailers) if self.engine_tools else 133,
+            "total_faces_actives": (len(self.engine_tools.trailers) * 2) if self.engine_tools else 266,
             "statut_daemon": "Actif" if self._running else "En attente",
             "derniers_evenements": self.state.get("history", [])[-5:]
         }

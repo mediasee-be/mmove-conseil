@@ -116,8 +116,11 @@ class MmoveHandler(BaseHTTPRequestHandler):
                     },
                     colors: {
                         mmove: {
+                            primary: '#F4920D',
+                            secondary: '#FF5B34',
                             orange: '#F4920D',
-                            cyan: '#2EA3F2',
+                            coral: '#FF5B34',
+                            text: '#666666',
                             dark: '#1E2229'
                         }
                     }
@@ -130,18 +133,35 @@ class MmoveHandler(BaseHTTPRequestHandler):
     <!-- Marked.js for Markdown Rendering -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
+        body {
+            color: #666666;
+        }
+        .dark body {
+            color: #cbd5e1;
+        }
+        .logo-text {
+            fill: #4f4f50;
+            transition: fill 0.2s ease;
+        }
+        .dark .logo-text {
+            fill: #ffffff;
+        }
         .markdown-body {
             line-height: 1.6;
             font-size: 0.925rem;
+            color: #555555;
+        }
+        .dark .markdown-body {
+            color: #e2e8f0;
         }
         .markdown-body h1, .markdown-body h2, .markdown-body h3 {
             font-weight: 700;
             margin-top: 1rem;
             margin-bottom: 0.5rem;
-            color: #1e3a8a;
+            color: #F4920D;
         }
         .dark .markdown-body h1, .dark .markdown-body h2, .dark .markdown-body h3 {
-            color: #93c5fd;
+            color: #F4920D;
         }
         .markdown-body ul {
             list-style-type: disc;
@@ -158,6 +178,10 @@ class MmoveHandler(BaseHTTPRequestHandler):
         }
         .markdown-body strong {
             font-weight: 700;
+            color: #222222;
+        }
+        .dark .markdown-body strong {
+            color: #ffffff;
         }
         .markdown-body p {
             margin-bottom: 0.75rem;
@@ -166,12 +190,19 @@ class MmoveHandler(BaseHTTPRequestHandler):
             margin-bottom: 0;
         }
         .markdown-body a {
-            color: #2563eb;
+            color: #F4920D;
             text-decoration: underline;
             font-weight: 600;
+            transition: color 0.15s ease;
+        }
+        .markdown-body a:hover {
+            color: #FF5B34;
         }
         .dark .markdown-body a {
-            color: #60a5fa;
+            color: #F4920D;
+        }
+        .dark .markdown-body a:hover {
+            color: #FF5B34;
         }
         .markdown-body hr {
             border-color: #e2e8f0;
@@ -189,38 +220,47 @@ class MmoveHandler(BaseHTTPRequestHandler):
         }
     </style>
 </head>
-<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col h-screen font-sans transition-colors duration-200">
+<body class="bg-slate-50 dark:bg-slate-950 text-[#666] dark:text-slate-300 flex flex-col h-screen font-sans transition-colors duration-200">
     <!-- HEADER -->
-    <header class="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between shadow-sm z-10 shrink-0">
-        <div class="flex items-center space-x-3">
-            <div class="relative w-11 h-11 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm shrink-0 flex items-center justify-center p-0.5">
-                <img src="/static/bot-avatar.png" alt="M Move Bot" class="w-full h-full object-cover object-top rounded-xl">
-            </div>
-            <div>
-                <h1 class="text-base md:text-lg font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-                    <span>M Move</span>
-                    <span class="text-xs px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-semibold border border-blue-200 dark:border-blue-800">Conseil 8m²</span>
-                </h1>
-                <p class="text-xs text-slate-500 dark:text-slate-400">132 Remorques en Wallonie &middot; Disponibilités &amp; Visibilité en direct</p>
+    <header class="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-2.5 flex items-center justify-between shadow-xs z-10 shrink-0">
+        <div class="flex items-center space-x-3 md:space-x-4">
+            <!-- Logo officiel M Move SVG -->
+            <a href="/" class="flex items-center shrink-0 hover:opacity-95 transition" title="M Move">
+                <svg class="h-8 md:h-9 w-auto" viewBox="214 219 415 160" xmlns="http://www.w3.org/2000/svg">
+                    <g>
+                        <path fill="#F4920D" d="M372.52,298.08c0,43.58-35.33,78.9-78.9,78.9s-78.9-35.33-78.9-78.9,35.33-78.9,78.9-78.9,78.9,35.33,78.9,78.9"/>
+                        <path fill="#fff" d="M302.08,355.13h-11.15v-97.6c0-3.99-1.99-5.58-5.18-5.58s-6.38,1-10.16,3.79v99.39h-11.15v-112.54h11.15v4.78c2.99-3.19,7.17-5.98,13.35-5.98,5.78,0,9.56,2.39,11.55,6.38,3.98-3.39,8.76-6.38,15.14-6.38,8.56,0,12.95,5.18,12.95,13.74v99.99h-11.15v-97.6c0-3.99-1.79-5.58-5.18-5.58-3.19,0-6.38,1-10.16,3.79v99.39Z"/>
+                        <path class="logo-text" d="M460.51,355.13h-11.15v-97.6c0-3.99-1.99-5.58-5.18-5.58s-6.38,1-10.16,3.79v99.39h-11.15v-112.54h11.15v4.78c2.99-3.19,7.17-5.98,13.35-5.98,5.78,0,9.56,2.39,11.55,6.38,3.98-3.39,8.76-6.38,15.14-6.38,8.56,0,12.95,5.18,12.95,13.74v99.99h-11.15v-97.6c0-3.99-1.79-5.58-5.18-5.58-3.19,0-6.38,1-10.16,3.79v99.39Z"/>
+                        <path class="logo-text" d="M514.68,251.75c-4.58,0-6.97,2.39-6.97,6.97v80.07c0,4.78,2.39,7.17,6.97,7.17h2.59c4.78,0,6.97-2.39,6.97-7.17v-80.07c0-4.58-2.19-6.97-6.97-6.97h-2.59ZM514.28,356.32c-11.55,0-17.73-5.97-17.73-17.93v-79.27c0-11.75,6.18-17.73,17.73-17.73h3.39c11.75,0,17.73,5.97,17.73,17.73v79.27c0,11.95-5.98,17.93-17.73,17.93h-3.39Z"/>
+                    </g>
+                    <polygon class="logo-text" points="555.91 355.13 541.57 242.59 552.92 242.59 562.09 329.83 571.45 242.59 582.4 242.59 568.06 355.13 555.91 355.13"/>
+                    <path class="logo-text" d="M599.73,292.38h15.74v-33.66c0-4.58-2.39-6.97-6.97-6.97h-1.79c-4.58,0-6.97,2.39-6.97,6.97v33.66ZM599.73,302.94v35.85c0,4.78,2.39,7.17,6.97,7.17h1.99c4.78,0,6.77-2.39,6.77-7.17v-26.09h11.15v25.7c0,11.95-5.97,17.93-17.93,17.93h-2.39c-11.55,0-17.73-5.97-17.73-17.93v-79.27c0-11.75,6.17-17.73,17.73-17.73h2.39c11.95,0,17.93,5.97,17.93,17.73v43.82h-26.89Z"/>
+                </svg>
+            </a>
+            <div class="h-6 w-px bg-slate-200 dark:bg-slate-750"></div>
+            <!-- Badge & Description -->
+            <div class="flex items-center gap-2">
+                <span class="text-xs px-2.5 py-0.5 rounded-full bg-[#F4920D]/10 text-[#F4920D] font-bold border border-[#F4920D]/20">Conseil 8m²</span>
+                <span class="text-xs text-[#666] dark:text-slate-400 font-medium hidden sm:inline">132 Remorques Wallonie</span>
             </div>
         </div>
 
         <div class="flex items-center space-x-2">
             <!-- Sync Live Badge -->
-            <div id="statsBadge" class="hidden sm:flex text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-xl text-slate-600 dark:text-slate-300 items-center space-x-2 shadow-inner">
+            <div id="statsBadge" class="hidden sm:flex text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-xl text-[#666] dark:text-slate-300 items-center space-x-2 shadow-inner">
                 <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 <span>132 remorques actives</span>
             </div>
 
             <!-- Sync Button -->
-            <button onclick="triggerSync('all')" title="Forcer la vérification immédiate des disponibilités" class="text-xs bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 px-2.5 py-1.5 rounded-xl text-blue-600 dark:text-blue-400 transition flex items-center space-x-1 font-medium">
+            <button onclick="triggerSync('all')" title="Forcer la vérification immédiate des disponibilités" class="text-xs bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 px-2.5 py-1.5 rounded-xl text-[#F4920D] hover:text-[#FF5B34] transition flex items-center space-x-1 font-medium">
                 <i class="fa-solid fa-arrows-rotate" id="syncIcon"></i>
                 <span class="hidden md:inline">Sync</span>
             </button>
 
             <!-- Dark / Light Mode Toggle -->
             <button onclick="toggleDarkMode()" title="Changer le thème (Clair / Sombre)" class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition flex items-center justify-center">
-                <i id="themeIcon" class="fa-solid fa-moon text-slate-600 dark:text-amber-400 text-sm"></i>
+                <i id="themeIcon" class="fa-solid fa-moon text-[#666] dark:text-amber-400 text-sm"></i>
             </button>
         </div>
     </header>
@@ -232,9 +272,9 @@ class MmoveHandler(BaseHTTPRequestHandler):
             <div class="w-9 h-9 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xs shrink-0 mt-0.5">
                 <img src="/static/bot-avatar.png" alt="Conseiller M Move" class="w-full h-full object-cover object-top">
             </div>
-            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl rounded-tl-sm p-5 max-w-3xl text-sm leading-relaxed shadow-sm text-slate-800 dark:text-slate-100">
-                <p class="font-bold text-blue-600 dark:text-blue-400 mb-2 flex items-center gap-1.5">
-                    <i class="fa-solid fa-sparkles text-amber-500"></i> Conseiller Commercial M Move
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl rounded-tl-sm p-5 max-w-3xl text-sm leading-relaxed shadow-sm text-[#666] dark:text-slate-200">
+                <p class="font-bold text-[#F4920D] mb-2 flex items-center gap-1.5">
+                    <i class="fa-solid fa-sparkles text-[#FF5B34]"></i> Conseiller Commercial M Move
                 </p>
                 Bonjour ! Je suis votre conseiller expert pour le réseau de remorques publicitaires 8m² M Move en Wallonie.<br><br>
                 Quelle zone, quel axe routier ou quelle période souhaitez-vous couvrir pour votre prochaine campagne ?
@@ -245,24 +285,24 @@ class MmoveHandler(BaseHTTPRequestHandler):
     <!-- BOTTOM INPUT BAR -->
     <div class="p-3 md:p-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 z-10 shrink-0">
         <div class="max-w-5xl mx-auto space-y-2.5">
-            <!-- Suggestions rapides en 1 clic (comme AI Studio) -->
+            <!-- Suggestions rapides en 1 clic -->
             <div class="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
-                <span class="flex items-center gap-1 text-slate-400 shrink-0 font-medium mr-1">
-                    <i class="fa-solid fa-wand-magic-sparkles text-amber-500"></i> Idées :
+                <span class="flex items-center gap-1 text-[#666] dark:text-slate-400 shrink-0 font-medium mr-1">
+                    <i class="fa-solid fa-wand-magic-sparkles text-[#F4920D]"></i> Idées :
                 </span>
-                <button type="button" onclick="sendSuggestion('Magasin de bricolage près de Namur en mai 2026')" class="shrink-0 px-3 py-1 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition border border-slate-200 dark:border-slate-700">
+                <button type="button" onclick="sendSuggestion('Magasin de bricolage près de Namur en mai 2026')" class="shrink-0 px-3 py-1 rounded-full bg-slate-100 hover:bg-[#F4920D]/10 dark:bg-slate-800 dark:hover:bg-[#F4920D]/10 text-[#666] dark:text-slate-200 hover:text-[#F4920D] dark:hover:text-[#F4920D] hover:border-[#F4920D]/40 transition border border-slate-200 dark:border-slate-700">
                     📍 Bricolage près de Namur
                 </button>
-                <button type="button" onclick="sendSuggestion('Concessionnaire auto sur la N4 ou E411')" class="shrink-0 px-3 py-1 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition border border-slate-200 dark:border-slate-700">
+                <button type="button" onclick="sendSuggestion('Concessionnaire auto sur la N4 ou E411')" class="shrink-0 px-3 py-1 rounded-full bg-slate-100 hover:bg-[#F4920D]/10 dark:bg-slate-800 dark:hover:bg-[#F4920D]/10 text-[#666] dark:text-slate-200 hover:text-[#F4920D] dark:hover:text-[#F4920D] hover:border-[#F4920D]/40 transition border border-slate-200 dark:border-slate-700">
                     🚗 Concession auto sur N4 / E411
                 </button>
-                <button type="button" onclick="sendSuggestion('Disponibilités remorques à Wierde et Naninne')" class="shrink-0 px-3 py-1 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition border border-slate-200 dark:border-slate-700">
+                <button type="button" onclick="sendSuggestion('Disponibilités remorques à Wierde et Naninne')" class="shrink-0 px-3 py-1 rounded-full bg-slate-100 hover:bg-[#F4920D]/10 dark:bg-slate-800 dark:hover:bg-[#F4920D]/10 text-[#666] dark:text-slate-200 hover:text-[#F4920D] dark:hover:text-[#F4920D] hover:border-[#F4920D]/40 transition border border-slate-200 dark:border-slate-700">
                     📅 Disponibilités Wierde & Naninne
                 </button>
-                <button type="button" onclick="sendSuggestion('Quand est libre le panneau #114 ?')" class="shrink-0 px-3 py-1 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition border border-slate-200 dark:border-slate-700">
+                <button type="button" onclick="sendSuggestion('Quand est libre le panneau #114 ?')" class="shrink-0 px-3 py-1 rounded-full bg-slate-100 hover:bg-[#F4920D]/10 dark:bg-slate-800 dark:hover:bg-[#F4920D]/10 text-[#666] dark:text-slate-200 hover:text-[#F4920D] dark:hover:text-[#F4920D] hover:border-[#F4920D]/40 transition border border-slate-200 dark:border-slate-700">
                     🔍 Dispo panneau #114
                 </button>
-                <button type="button" onclick="sendSuggestion('5 règles d\'or pour un visuel percutant 8m²')" class="shrink-0 px-3 py-1 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition border border-slate-200 dark:border-slate-700">
+                <button type="button" onclick="sendSuggestion('5 règles d\'or pour un visuel percutant 8m²')" class="shrink-0 px-3 py-1 rounded-full bg-slate-100 hover:bg-[#F4920D]/10 dark:bg-slate-800 dark:hover:bg-[#F4920D]/10 text-[#666] dark:text-slate-200 hover:text-[#F4920D] dark:hover:text-[#F4920D] hover:border-[#F4920D]/40 transition border border-slate-200 dark:border-slate-700">
                     💡 5 règles d'or visuel 8m²
                 </button>
             </div>
@@ -270,8 +310,8 @@ class MmoveHandler(BaseHTTPRequestHandler):
             <!-- Formulaire de saisie -->
             <form id="chatForm" class="flex items-end space-x-2.5">
                 <textarea id="messageInput" rows="1" placeholder="Posez votre question (ex: Remorques disponibles à Wavre en septembre)..." 
-                    class="flex-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 dark:text-white placeholder-slate-400 resize-none max-h-36 leading-normal" required></textarea>
-                <button type="submit" id="sendBtn" class="bg-blue-600 hover:bg-blue-500 active:scale-95 text-white px-5 py-3 rounded-2xl font-semibold text-sm transition shadow-sm flex items-center justify-center shrink-0 disabled:opacity-50 disabled:cursor-not-allowed">
+                    class="flex-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#F4920D] focus:border-[#F4920D] text-slate-900 dark:text-white placeholder-slate-400 resize-none max-h-36 leading-normal" required></textarea>
+                <button type="submit" id="sendBtn" class="bg-gradient-to-r from-[#F4920D] to-[#FF5B34] hover:opacity-95 active:scale-95 text-white px-5 py-3 rounded-2xl font-semibold text-sm transition shadow-sm flex items-center justify-center shrink-0 disabled:opacity-50 disabled:cursor-not-allowed">
                     <i class="fa-solid fa-paper-plane text-sm"></i>
                 </button>
             </form>
@@ -431,7 +471,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
                 : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 border-indigo-300 dark:border-indigo-800';
 
             return `
-            <div class="bg-white dark:bg-slate-800/95 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/80 overflow-hidden hover:shadow-md hover:border-blue-500 transition-all text-sm flex flex-col group">
+            <div class="bg-white dark:bg-slate-800/95 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700/80 overflow-hidden hover:shadow-md hover:border-[#F4920D]/60 transition-all text-sm flex flex-col group">
                 <!-- 1. Photo de la remorque 8m² avec badges -->
                 <div class="relative w-full h-36 bg-slate-900 overflow-hidden">
                     <img src="${photoUrl}" 
@@ -440,7 +480,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
                          onerror="this.onerror=null; this.src='https://remorquepublicitaire.be/wp-content/uploads/2021/07/logo-mmove.png'; this.classList.add('object-contain', 'p-4');" />
                     
                     ${isDirect ? `
-                    <div class="absolute top-2 left-2 bg-emerald-600/95 backdrop-blur-sm text-white text-[11px] font-bold px-2.5 py-0.5 rounded-md shadow-sm border border-emerald-400/40 flex items-center space-x-1">
+                    <div class="absolute top-2 left-2 bg-gradient-to-r from-[#F4920D] to-[#FF5B34] text-white text-[11px] font-bold px-2.5 py-0.5 rounded-md shadow-sm flex items-center space-x-1">
                         <span>🎯 Implantation directe</span>
                     </div>` : ''}
 
@@ -449,7 +489,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
                     </div>
 
                     ${distText ? `
-                    <div class="absolute bottom-2 left-2 bg-blue-600/90 backdrop-blur-sm text-white text-[11px] font-semibold px-2 py-0.5 rounded-md shadow-sm">
+                    <div class="absolute bottom-2 left-2 bg-black/75 backdrop-blur-sm text-white text-[11px] font-semibold px-2 py-0.5 rounded-md shadow-sm">
                         ${distText}
                     </div>` : ''}
 
@@ -467,11 +507,11 @@ class MmoveHandler(BaseHTTPRequestHandler):
                         <div class="flex justify-between items-start gap-2 mb-1">
                             <div>
                                 <a href="${linkUrl}" target="_blank" rel="noopener noreferrer" 
-                                   class="font-bold text-base text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1.5 group-hover:text-blue-700 dark:group-hover:text-blue-300">
+                                   class="font-bold text-base text-slate-900 dark:text-white hover:text-[#F4920D] dark:hover:text-[#F4920D] flex items-center gap-1.5 transition-colors">
                                     <span>#${panelId} - ${p.ville || 'Wallonie'}</span>
-                                    <i class="fa-solid fa-arrow-up-right-from-square text-xs text-blue-400"></i>
+                                    <i class="fa-solid fa-arrow-up-right-from-square text-xs text-[#F4920D]"></i>
                                 </a>
-                                ${p.localisation ? `<p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium">${p.localisation}</p>` : ''}
+                                ${p.localisation ? `<p class="text-xs text-[#666] dark:text-slate-400 mt-0.5 font-medium">${p.localisation}</p>` : ''}
                             </div>
                             <span class="px-2 py-0.5 rounded-full text-xs font-bold shrink-0 border ${faceColor}">
                                 Face ${p.face || 'IN/OUT'}
@@ -480,13 +520,13 @@ class MmoveHandler(BaseHTTPRequestHandler):
 
                         <!-- Badge Disponibilité Mis en Valeur -->
                         ${p.prochaine_dispo ? `
-                        <div class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300 font-bold text-xs shadow-xs">
-                            <i class="fa-regular fa-calendar-check text-emerald-600 dark:text-emerald-400"></i>
+                        <div class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#F4920D]/10 dark:bg-[#F4920D]/20 border border-[#F4920D]/30 text-[#F4920D] font-bold text-xs shadow-2xs">
+                            <i class="fa-regular fa-calendar-check text-[#F4920D]"></i>
                             <span>Disponible dès : <b>${p.prochaine_dispo_human || p.prochaine_dispo}</b></span>
                         </div>` : ''}
 
                         <!-- Axe routier & Direction -->
-                        <div class="space-y-1 text-slate-600 dark:text-slate-300 text-xs mt-2.5">
+                        <div class="space-y-1 text-[#666] dark:text-slate-300 text-xs mt-2.5">
                             ${p.axe_routier ? `
                             <div class="flex items-center space-x-2">
                                 <i class="fa-solid fa-road text-slate-400 dark:text-slate-500 w-3.5 text-center"></i>
@@ -494,7 +534,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
                             </div>` : ''}
                             ${p.direction ? `
                             <div class="flex items-center space-x-2">
-                                <i class="fa-solid fa-compass text-slate-400 dark:text-slate-500 w-3.5 text-center"></i>
+                                <i class="fa-solid fa-compass text-[#FF5B34] w-3.5 text-center"></i>
                                 <span>Direction <span class="font-medium text-slate-700 dark:text-slate-200">${p.direction}</span></span>
                             </div>` : ''}
                         </div>
@@ -503,20 +543,20 @@ class MmoveHandler(BaseHTTPRequestHandler):
                         ${(freqFormatted || otsFormatted) ? `
                         <div class="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-700 flex items-center gap-3 text-xs">
                             ${freqFormatted ? `
-                            <span class="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-semibold" title="Fréquentation moyenne">
-                                <i class="fa-solid fa-car text-blue-500"></i>
+                            <span class="flex items-center gap-1.5 text-[#F4920D] font-semibold" title="Fréquentation moyenne">
+                                <i class="fa-solid fa-car text-[#F4920D]"></i>
                                 ${freqFormatted} véh./j
                             </span>` : ''}
                             ${otsFormatted ? `
-                            <span class="flex items-center gap-1.5 text-purple-600 dark:text-purple-400 font-semibold" title="Opportunité de visibilité mensuelle">
-                                <i class="fa-solid fa-eye text-purple-500"></i>
+                            <span class="flex items-center gap-1.5 text-[#FF5B34] font-semibold" title="Opportunité de visibilité mensuelle">
+                                <i class="fa-solid fa-eye text-[#FF5B34]"></i>
                                 ${otsFormatted} OTS/mois
                             </span>` : ''}
                         </div>` : ''}
 
                         <!-- Contexte de visibilité -->
                         ${p.contexte_visibilite ? `
-                        <div class="mt-2 bg-slate-50 dark:bg-slate-700/50 p-2.5 rounded-xl border border-slate-200/70 dark:border-slate-600/50 text-[11px] text-slate-600 dark:text-slate-300 italic">
+                        <div class="mt-2 bg-slate-50 dark:bg-slate-700/50 p-2.5 rounded-xl border border-slate-200/70 dark:border-slate-600/50 text-[11px] text-[#666] dark:text-slate-300 italic">
                             👁️ ${p.contexte_visibilite}
                         </div>` : ''}
                     </div>
@@ -530,7 +570,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
                                 <span>Dispo dès : <b>${p.prochaine_dispo_human || p.prochaine_dispo}</b></span>
                             </span>
                             <a href="${linkUrl}" target="_blank" rel="noopener noreferrer" 
-                               class="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 hover:text-emerald-900 dark:hover:text-white underline">
+                               class="text-[11px] font-bold text-[#FF5B34] hover:text-[#F4920D] transition-colors underline">
                                 Réserver ↗
                             </a>
                         </div>` : ''}
@@ -569,7 +609,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
             let timingHtml = '';
             if (timing) {
                 timingHtml = `
-                <div class="mt-3 text-[11px] text-slate-400 dark:text-slate-500 flex flex-wrap gap-x-3 gap-y-1 border-t border-slate-200/80 dark:border-slate-700/80 pt-2 font-mono">
+                <div class="mt-3 text-[11px] text-[#888] dark:text-slate-500 flex flex-wrap gap-x-3 gap-y-1 border-t border-slate-200/80 dark:border-slate-700/80 pt-2 font-mono">
                     <span>⚡ Réponse: ${timing.total_ms}ms</span>
                     <span>&middot; NLU: ${timing.extraction_ms}ms</span>
                     <span>&middot; Géo/Dispo: ${timing.engine_ms}ms</span>
@@ -578,8 +618,8 @@ class MmoveHandler(BaseHTTPRequestHandler):
             }
 
             const bubbleClass = isUser 
-                ? 'bg-blue-600 text-white rounded-2xl rounded-tr-sm px-4 py-3 max-w-xl text-sm shadow-sm' 
-                : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl rounded-tl-sm p-5 max-w-3xl text-sm leading-relaxed shadow-sm text-slate-800 dark:text-slate-100 markdown-body';
+                ? 'bg-gradient-to-r from-[#F4920D] to-[#FF5B34] text-white rounded-2xl rounded-tr-sm px-4 py-3 max-w-xl text-sm shadow-sm font-medium' 
+                : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl rounded-tl-sm p-5 max-w-3xl text-sm leading-relaxed shadow-sm text-[#666] dark:text-slate-100 markdown-body';
 
             div.innerHTML = `
                 ${!isUser ? avatar : ''}
@@ -602,13 +642,13 @@ class MmoveHandler(BaseHTTPRequestHandler):
             div.innerHTML = `
                 <div class="relative w-9 h-9 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xs shrink-0 mt-0.5">
                     <img src="/static/bot-avatar.png" alt="Conseiller M Move" class="w-full h-full object-cover object-top opacity-60">
-                    <div class="absolute inset-0 bg-blue-600/30 flex items-center justify-center">
+                    <div class="absolute inset-0 bg-[#F4920D]/30 flex items-center justify-center">
                         <i class="fa-solid fa-spinner fa-spin text-white text-xs"></i>
                     </div>
                 </div>
-                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl rounded-tl-sm p-4 text-sm text-slate-500 dark:text-slate-400 flex items-center space-x-3 shadow-sm">
+                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl rounded-tl-sm p-4 text-sm text-[#666] dark:text-slate-400 flex items-center space-x-3 shadow-sm">
                     <span class="animate-pulse flex items-center gap-2">
-                        <i class="fa-solid fa-magnifying-glass-location text-blue-500"></i>
+                        <i class="fa-solid fa-magnifying-glass-location text-[#F4920D]"></i>
                         Recherche d'implantation &amp; calcul des disponibilités en direct...
                     </span>
                 </div>

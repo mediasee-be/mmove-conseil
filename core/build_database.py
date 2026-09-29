@@ -1,95 +1,115 @@
 """
-Build Mmove Consolidated Database
-Consolide le réseau des remorques actives (core/mmove_network_enriched.csv)
-avec les calendriers de disponibilité 2026 et 2027 (fichiers Excel).
-Génère data/mmove_db.json pour un accès en mémoire ultra-rapide (< 1ms).
+Build Mmove Consolidated Database (Google Sheets Direct Sync)
+Synchronise directement les données en temps réel depuis Google Sheets :
+1. Réservations & Disponibilités :
+   https://docs.google.com/spreadsheets/d/1oB26N_hjCeYSqD1sAqAypWRbu48Vq4K6zDan7yly6mY/edit?gid=1394058063
+   Règle : Si la colonne Client est vide, alors c'est DISPO.
+2. Inventaire des remorques & Métriques :
+   https://docs.google.com/spreadsheets/d/1oB26N_hjCeYSqD1sAqAypWRbu48Vq4K6zDan7yly6mY/edit?gid=2093954666
+
+Génère data/mmove_db.json avec cache local de secours pour résilience maximale.
 """
 
 import os
 import csv
+import io
 import json
-import openpyxl
+import ssl
+import urllib.request
+from datetime import datetime
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CSV_PATH = os.path.join(BASE_DIR, "core", "mmove_network_enriched.csv")
 DATA_DIR = os.path.join(BASE_DIR, "data")
 OUTPUT_DB = os.path.join(DATA_DIR, "mmove_db.json")
 
-EXCEL_2026_PATH = os.path.join(DATA_DIR, "Mmove_2026.xlsx")
-EXCEL_2027_PATH = os.path.join(DATA_DIR, "Mmove_2027.xlsx")
+SHEET_RESERVATIONS_URL = "https://docs.google.com/spreadsheets/d/1oB26N_hjCeYSqD1sAqAypWRbu48Vq4K6zDan7yly6mY/export?format=csv&gid=1394058063"
+SHEET_PANELS_URL = "https://docs.google.com/spreadsheets/d/1oB26N_hjCeYSqD1sAqAypWRbu48Vq4K6zDan7yly6mY/export?format=csv&gid=2093954666"
 
-MONTH_NAMES = [
-    "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
-    "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
-]
+CACHE_RESERVATIONS_PATH = os.path.join(DATA_DIR, "reservations_cache.csv")
+CACHE_PANELS_PATH = os.path.join(DATA_DIR, "trailers_cache.csv")
+FALLBACK_CSV_PATH = os.path.join(BASE_DIR, "core", "mmove_network_enriched.csv")
 
-def parse_schedule_excel(file_path, year):
+def fetch_csv_with_cache(url: str, cache_path: str, fallback_path: str = None) -> str:
     """
-    Lit l'onglet DISPO d'un classeur Excel Mmove annuel
+    Télécharge le CSV depuis Google Sheets.
+    En cas de succès, met à jour le cache local.
+    En cas d'échec (hors-ligne), utilise le cache local ou le fichier fallback.
+    """
+    try:
+        ctx = ssl._create_unverified_context()
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (MDS-AI-Sync/2.0)"})
+        with urllib.request.urlopen(req, context=ctx, timeout=15) as resp:
+            content = resp.read().decode("utf-8", errors="ignore")
+            if len(content) > 1000 and "Remorque" in content:
+                os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+                with open(cache_path, "w", encoding="utf-8") as f:
+                    f.write(content)
+                return content
+    except Exception as e:
+        print(f"[BuildDB] Avertissement: échec téléchargement Google Sheets ({e}). Tentative cache local...")
+
+    # Utilisation du cache local
+    if os.path.exists(cache_path):
+        with open(cache_path, "r", encoding="utf-8") as f:
+            return f.read()
+
+    # Utilisation du fallback
+    if fallback_path and os.path.exists(fallback_path):
+        with open(fallback_path, "r", encoding="utf-8") as f:
+            return f.read()
+
+    raise RuntimeError(f"Impossible de charger les données (aucun cache disponible pour {cache_path})")
+
+def parse_reservations(csv_content: str) -> dict:
+    """
+    Parse les réservations Google Sheet.
+    RÈGLE : Si la colonne Client est vide (et non bloqué), alors c'est DISPO.
     Retourne { trailer_id: { "YYYY-MM": { "IN": "DISPO"|"LOUÉ", "OUT": "DISPO"|"LOUÉ" } } }
     """
-    if not os.path.exists(file_path):
-        print(f"Attention : Fichier {file_path} introuvable.")
-        return {}
+    reader = csv.DictReader(io.StringIO(csv_content))
+    schedules = {}
 
-    wb = openpyxl.load_workbook(file_path, data_only=True, read_only=True)
-    if "DISPO" not in wb.sheetnames:
-        print(f"Feuille DISPO introuvable dans {file_path}")
-        return {}
-
-    sheet = wb["DISPO"]
-    schedule = {}
-
-    rows = list(sheet.iter_rows(values_only=True))
-    if not rows:
-        return {}
-
-    # Ligne d'en-tête (normalement ligne index 0)
-    # Col 0: ID remorque, Col 1: Ville/Emplacement, Col 2: Emplacement, Col 3: Direction
-    # Col 4..: Mois alternés IN / OUT
-    for r in rows[2:]:  # Commence après les en-têtes
-        rem_raw = r[0]
-        if rem_raw is None:
+    for r in reader:
+        raw_rem = (r.get("Remorque") or "").strip()
+        if not raw_rem:
             continue
         try:
-            rem_id = str(int(float(rem_raw))).strip()
+            rem_id = str(int(float(raw_rem)))
         except (ValueError, TypeError):
-            continue
+            rem_id = raw_rem
 
-        if not rem_id or rem_id == "0":
-            continue
+        period = (r.get("Période") or r.get("Periode") or "").strip()
+        face = (r.get("Face") or "").strip().upper()
+        client = (r.get("Client") or "").strip()
+        remarque = (r.get("Remarque") or "").strip().upper()
 
-        schedule[rem_id] = {}
+        # RÈGLE D'OR MÉTIER M MOVE
+        is_dispo = (not client) and ("BLOQ" not in remarque)
+        status = "DISPO" if is_dispo else "LOUÉ"
 
-        # 12 mois avec 2 colonnes par mois (IN et OUT)
-        col_idx = 4
-        for m_idx, month_name in enumerate(MONTH_NAMES, start=1):
-            period_key = f"{year}-{m_idx:02d}"
-            status_in = "DISPO"
-            status_out = "DISPO"
+        if rem_id not in schedules:
+            schedules[rem_id] = {}
+        if period not in schedules[rem_id]:
+            schedules[rem_id][period] = {"IN": "DISPO", "OUT": "DISPO"}
 
-            if col_idx < len(r):
-                val_in = str(r[col_idx]).strip().upper() if r[col_idx] else ""
-                status_in = "LOUÉ" if "LOU" in val_in or "RESERV" in val_in or "SOLD" in val_in else "DISPO"
-            
-            if col_idx + 1 < len(r):
-                val_out = str(r[col_idx + 1]).strip().upper() if r[col_idx + 1] else ""
-                status_out = "LOUÉ" if "LOU" in val_out or "RESERV" in val_out or "SOLD" in val_out else "DISPO"
+        if face in ["IN", "OUT"]:
+            schedules[rem_id][period][face] = status
 
-            schedule[rem_id][period_key] = {
-                "IN": status_in,
-                "OUT": status_out,
-            }
-            col_idx += 2
+    return schedules
 
-    return schedule
-
-def calculate_next_dispo(availability_dict):
+def calculate_next_dispo(availability_dict: dict, current_month: str = None) -> dict:
     """
-    Calcule la prochaine disponibilité pour chaque face (IN / OUT)
-    et globale.
+    Calcule la prochaine disponibilité à partir du mois courant ou futur.
     """
-    sorted_periods = sorted(availability_dict.keys())
+    if current_month is None:
+        current_month = datetime.now().strftime("%Y-%m")
+
+    # On ne regarde que les périodes présentes ou futures
+    future_periods = sorted([p for p in availability_dict.keys() if p >= current_month])
+    
+    # Si aucune période future renseignée, fallback sur toutes les périodes triées
+    sorted_periods = future_periods if future_periods else sorted(availability_dict.keys())
+
     next_in = None
     next_out = None
     next_any = None
@@ -104,122 +124,102 @@ def calculate_next_dispo(availability_dict):
             next_any = p
 
     return {
-        "prochaine_dispo_in": next_in or "Non disponible",
-        "prochaine_dispo_out": next_out or "Non disponible",
-        "prochaine_dispo": next_any or "Non disponible"
+        "prochaine_dispo_in": next_in or "Sur demande (+1 an)",
+        "prochaine_dispo_out": next_out or "Sur demande (+1 an)",
+        "prochaine_dispo": next_any or "Sur demande (+1 an)"
     }
 
-def build_database():
-    print(f"Lecture du réseau Mmove depuis {CSV_PATH}...")
-    if not os.path.exists(CSV_PATH):
-        raise FileNotFoundError(f"Fichier {CSV_PATH} introuvable.")
+def build_database() -> dict:
+    """
+    Consolide la base de données M Move à partir des flux Google Sheets.
+    """
+    print("[BuildDB] Connexion aux Google Sheets M Move...")
+    res_content = fetch_csv_with_cache(SHEET_RESERVATIONS_URL, CACHE_RESERVATIONS_PATH)
+    schedules = parse_reservations(res_content)
+    print(f"[BuildDB] Calendriers chargés pour {len(schedules)} remorques.")
 
-    # 1. Charger les plannings 2026 et 2027
-    print(f"Chargement des disponibilités 2026...")
-    sched_2026 = parse_schedule_excel(EXCEL_2026_PATH, 2026)
-    print(f"Plannings 2026 chargés pour {len(sched_2026)} remorques.")
-
-    print(f"Chargement des disponibilités 2027...")
-    sched_2027 = parse_schedule_excel(EXCEL_2027_PATH, 2027)
-    print(f"Plannings 2027 chargés pour {len(sched_2027)} remorques.")
-
-    # 2. Lire le CSV enrichi
+    pan_content = fetch_csv_with_cache(SHEET_PANELS_URL, CACHE_PANELS_PATH, FALLBACK_CSV_PATH)
+    reader_pan = csv.DictReader(io.StringIO(pan_content))
+    
     trailers = {}
-    with open(CSV_PATH, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for r in reader:
-            active_val = r.get("Active", "").strip().upper()
-            if active_val != "Y":
-                continue  # RÈGLE ABSOLUE : Uniquement remorques actives
+    current_month = datetime.now().strftime("%Y-%m")
 
-            rem_raw = r.get("Remorque", "").strip()
+    for r in reader_pan:
+        active_val = (r.get("Active") or "").strip().upper()
+        if active_val != "Y":
+            continue  # RÈGLE ABSOLUE : uniquement remorques actives
+
+        raw_rem = (r.get("Remorque") or "").strip()
+        try:
+            rem_id = str(int(float(raw_rem)))
+        except (ValueError, TypeError):
+            rem_id = raw_rem
+
+        if not rem_id or rem_id == "0":
+            continue
+
+        # Coordonnées GPS
+        gps_str = (r.get("GPS") or "").strip()
+        lat, lng = None, None
+        if gps_str and "," in gps_str:
             try:
-                rem_id = str(int(float(rem_raw)))
-            except (ValueError, TypeError):
-                rem_id = rem_raw
+                parts = gps_str.split(",")
+                lat = float(parts[0].strip())
+                lng = float(parts[1].strip())
+            except (ValueError, IndexError):
+                pass
 
-            if not rem_id:
-                continue
+        # Fréquentation
+        freq_raw = (r.get("Frequentation_Moyenne_veh_jour") or "").strip()
+        freq_val = None
+        if freq_raw:
+            try:
+                freq_val = int(float(freq_raw.replace(" ", "").replace(",", ".")))
+            except ValueError:
+                freq_val = None
 
-            # GPS
-            gps_str = r.get("GPS", "").strip()
-            lat, lng = None, None
-            if gps_str and "," in gps_str:
-                try:
-                    parts = gps_str.split(",")
-                    lat = float(parts[0].strip())
-                    lng = float(parts[1].strip())
-                except (ValueError, IndexError):
-                    pass
-
-            # Fréquentation
-            freq_raw = r.get("Frequentation_Moyenne_veh_jour", "").strip()
-            freq_val = None
-            if freq_raw:
-                try:
-                    freq_val = int(float(freq_raw.replace(" ", "").replace(",", ".")))
-                except ValueError:
-                    freq_val = None
-
-            # Contexte & Scores
-            contexte = r.get("Contexte_Visibilite", "").strip()
-            score_impact = r.get("Score_Impact_Temps_Exposition", "").strip()
-            axe_routier = r.get("Axe-remorque", "").strip()
-            code_route = r.get("Code_Route", "").strip()
-            nom_route = r.get("Nom_Route", "").strip()
-            ville = r.get("Ville-remorque", "").strip()
-            localisation = r.get("Localisation-remorque", "").strip()
-            direction_in = r.get("Direction-remorque", "").strip()
-            direction_out = r.get("Direction-out", "").strip()
-            province = r.get("Province", "").strip()
-
-            photo_in = r.get("Photo-IN", "").strip()
-            photo_out = r.get("Photo-OUT", "").strip()
-
-            # Fusion disponibilités 2026 + 2027
-            avail_combined = {}
-            if rem_id in sched_2026:
-                avail_combined.update(sched_2026[rem_id])
-            if rem_id in sched_2027:
-                avail_combined.update(sched_2027[rem_id])
-
-            next_dispos = calculate_next_dispo(avail_combined)
-
-            # OTS estimé mensuel (~ 30 jours * frequentation * facteur de passage)
+        # Vues mensuelles OTS
+        ots_raw = (r.get("Vues_Mensuelles_OTS") or "").strip()
+        try:
+            ots_val = int(float(ots_raw.replace(" ", "").replace(",", "."))) if ots_raw else (int(freq_val * 30 * 1.2) if freq_val else None)
+        except ValueError:
             ots_val = int(freq_val * 30 * 1.2) if freq_val else None
 
-            trailers[rem_id] = {
-                "id": rem_id,
-                "ville": ville,
-                "localisation": localisation,
-                "province": province,
-                "axe_routier": axe_routier,
-                "code_route": code_route,
-                "nom_route": nom_route,
-                "direction_in": direction_in,
-                "direction_out": direction_out,
-                "lat": lat,
-                "lng": lng,
-                "active": "Y",
-                "frequentation_jour": freq_val,
-                "ots_mensuel": ots_val,
-                "score_impact": score_impact,
-                "contexte_visibilite": contexte,
-                "photo_in": photo_in,
-                "photo_out": photo_out,
-                "lien": f"https://remorquepublicitaire.be/remorque/{rem_id}",
-                "disponibilites": avail_combined,
-                "prochaine_dispo": next_dispos["prochaine_dispo"],
-                "prochaine_dispo_in": next_dispos["prochaine_dispo_in"],
-                "prochaine_dispo_out": next_dispos["prochaine_dispo_out"],
-            }
+        avail = schedules.get(rem_id, {})
+        next_dispos = calculate_next_dispo(avail, current_month)
 
-    print(f"Total remorques actives consolidées : {len(trailers)}")
+        trailers[rem_id] = {
+            "id": rem_id,
+            "ville": (r.get("Ville-remorque") or "").strip(),
+            "localisation": (r.get("Localisation-remorque") or "").strip(),
+            "province": (r.get("Province") or "").strip(),
+            "axe_routier": (r.get("Axe-remorque") or "").strip(),
+            "code_route": (r.get("Code_Route") or "").strip(),
+            "nom_route": (r.get("Nom_Route") or "").strip(),
+            "direction_in": (r.get("Direction-remorque") or "").strip(),
+            "direction_out": (r.get("Direction-out") or "").strip(),
+            "lat": lat,
+            "lng": lng,
+            "active": "Y",
+            "frequentation_jour": freq_val,
+            "ots_mensuel": ots_val,
+            "score_impact": (r.get("Score_Impact_Temps_Exposition") or "").strip(),
+            "contexte_visibilite": (r.get("Contexte_Visibilite") or "").strip(),
+            "photo_in": (r.get("Photo-IN") or "").strip(),
+            "photo_out": (r.get("Photo-OUT") or "").strip(),
+            "lien": (r.get("Lien") or f"https://remorquepublicitaire.be/remorque/{rem_id}").strip(),
+            "disponibilites": avail,
+            "prochaine_dispo": next_dispos["prochaine_dispo"],
+            "prochaine_dispo_in": next_dispos["prochaine_dispo_in"],
+            "prochaine_dispo_out": next_dispos["prochaine_dispo_out"],
+        }
+
+    print(f"[BuildDB] Total remorques actives consolidées en direct : {len(trailers)}")
     os.makedirs(DATA_DIR, exist_ok=True)
     with open(OUTPUT_DB, "w", encoding="utf-8") as out_f:
         json.dump(trailers, out_f, ensure_ascii=False, indent=2)
 
-    print(f"Base de données générée avec succès : {OUTPUT_DB}")
+    print(f"[BuildDB] Base de données générée avec succès : {OUTPUT_DB}")
     return trailers
 
 build_unified_database = build_database

@@ -90,7 +90,7 @@ class SyncManager:
     def check_disponibilites(self, force: bool = False) -> Dict[str, Any]:
         """
         Cadence Horaire (1x par heure) :
-        Vérifie et met à jour les réservations et statuts de disponibilité.
+        Vérifie et met à jour les réservations et statuts de disponibilité directement depuis Google Sheets.
         """
         with self._lock:
             now = time.time()
@@ -105,44 +105,24 @@ class SyncManager:
                 }
 
             self.state["status"] = "checking_dispo"
-            updated = False
-            details = []
-
-            # 1. Vérifier si de nouveaux plannings Excel existent dans ~/Downloads ou data/
-            newest_2026 = self._find_newest_file("Mmove*2026*.xlsx")
-            newest_2027 = self._find_newest_file("Mmove*2027*.xlsx")
-
-            local_2026 = os.path.join(DATA_DIR, "Mmove_2026.xlsx")
-            local_2027 = os.path.join(DATA_DIR, "Mmove_2027.xlsx")
-
-            if newest_2026 and newest_2026 != local_2026:
-                if os.path.getmtime(newest_2026) > os.path.getmtime(local_2026):
-                    shutil.copy2(newest_2026, local_2026)
-                    updated = True
-                    details.append(f"Planning 2026 actualisé depuis {os.path.basename(newest_2026)}")
-
-            if newest_2027 and newest_2027 != local_2027:
-                if os.path.getmtime(newest_2027) > os.path.getmtime(local_2027):
-                    shutil.copy2(newest_2027, local_2027)
-                    updated = True
-                    details.append(f"Planning 2027 actualisé depuis {os.path.basename(newest_2027)}")
-
-            # 2. Si un fichier a été actualisé ou si rebuild forcé, réexécuter le build_database
-            if updated or force:
+            try:
                 from ..build_database import build_unified_database
                 build_unified_database()
                 if self.engine_tools:
                     self.engine_tools.reload()
                 self.state["last_dispo_updated"] = now
-                msg = "Disponibilités actualisées : " + ", ".join(details or ["rebuild complet"])
-            else:
-                msg = "Disponibilités vérifiées : aucune modification détectée"
+                msg = "Disponibilités synchronisées avec succès depuis Google Sheets"
+                updated = True
+            except Exception as e:
+                msg = f"Erreur lors de la synchronisation des disponibilités Google Sheets : {e}"
+                updated = False
+                print(f"[SyncManager] {msg}")
 
             self.state["last_dispo_check"] = now
             self.state["status"] = "idle"
             self.log_event("VERIF_DISPO_HORAIRE", msg, updated=updated)
             return {
-                "status": "success",
+                "status": "success" if updated else "error",
                 "updated": updated,
                 "message": msg,
                 "timestamp": now
@@ -151,7 +131,7 @@ class SyncManager:
     def check_panneaux(self, force: bool = False) -> Dict[str, Any]:
         """
         Cadence Hebdomadaire (1x par semaine) :
-        Vérifie et met à jour l'inventaire des panneaux (ID, GPS, actifs, photos, axes).
+        Vérifie et met à jour l'inventaire des panneaux (ID, GPS, actifs, photos, axes) depuis Google Sheets.
         """
         with self._lock:
             now = time.time()
@@ -166,30 +146,24 @@ class SyncManager:
                 }
 
             self.state["status"] = "checking_panels"
-            updated = False
-
-            # Vérifier date de modification du CSV de réseau
-            csv_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../mmove_network_enriched.csv"))
-            csv_mtime = os.path.getmtime(csv_path) if os.path.exists(csv_path) else 0
-
-            # Si le CSV est plus récent que la dernière mise à jour de panneaux
-            last_up = self.state.get("last_panels_updated") or 0
-            if csv_mtime > last_up or force:
+            try:
                 from ..build_database import build_unified_database
                 build_unified_database()
                 if self.engine_tools:
                     self.engine_tools.reload()
                 self.state["last_panels_updated"] = now
                 updated = True
-                msg = "Inventaire hebdomadaire des panneaux actualisé et rechargé en mémoire"
-            else:
-                msg = "Inventaire des panneaux vérifié : liste conforme et à jour"
+                msg = "Inventaire des remorques synchronisé avec succès depuis Google Sheets"
+            except Exception as e:
+                updated = False
+                msg = f"Erreur lors de la synchronisation de l'inventaire Google Sheets : {e}"
+                print(f"[SyncManager] {msg}")
 
             self.state["last_panels_check"] = now
             self.state["status"] = "idle"
             self.log_event("VERIF_PANNEAUX_HEBDO", msg, updated=updated)
             return {
-                "status": "success",
+                "status": "success" if updated else "error",
                 "updated": updated,
                 "message": msg,
                 "timestamp": now

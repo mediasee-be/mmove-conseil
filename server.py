@@ -476,13 +476,8 @@ class MmoveHandler(BaseHTTPRequestHandler):
                          class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                          onerror="this.onerror=null; this.src='https://remorquepublicitaire.be/wp-content/uploads/2021/07/logo-mmove.png'; this.classList.add('object-contain', 'p-4');" />
                     
-                    ${isDirect ? `
-                    <div class="absolute top-2 left-2 bg-gradient-to-r from-[#F4920D] to-[#FF5B34] text-white text-[11px] font-bold px-2.5 py-0.5 rounded-md shadow-sm flex items-center space-x-1">
-                        <span>🎯 Implantation directe</span>
-                    </div>` : ''}
-
                     ${distText ? `
-                    <div class="absolute bottom-2 left-2 bg-black/75 backdrop-blur-sm text-white text-[11px] font-semibold px-2 py-0.5 rounded-md shadow-sm">
+                    <div class="absolute top-2 left-2 bg-black/75 backdrop-blur-sm text-white text-[11px] font-semibold px-2 py-0.5 rounded-md shadow-sm">
                         ${distText}
                     </div>` : ''}
 
@@ -559,7 +554,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
                         </div>` : ''}
                     </div>
 
-                    <!-- Footer Disponibilité & Bouton Réserver -->
+                    <!-- Footer Disponibilité & Bouton Plus d'infos -->
                     <div class="pt-2">
                         ${p.prochaine_dispo ? `
                         <div class="bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs px-3 py-2 rounded-xl flex items-center justify-between font-medium">
@@ -569,7 +564,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
                             </span>
                             <a href="${linkUrl}" target="_blank" rel="noopener noreferrer" 
                                class="text-[11px] font-bold text-[#FF5B34] hover:text-[#F4920D] transition-colors underline">
-                                Réserver ↗
+                                Plus d'infos ↗
                             </a>
                         </div>` : ''}
                     </div>

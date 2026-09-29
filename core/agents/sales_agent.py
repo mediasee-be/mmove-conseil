@@ -25,37 +25,25 @@ Tu es l'**Agent Commercial Expert** de la société **M Move** (remorquepublicit
 * **SERVICE "TOUT COMPRIS" :** Prix incluant la location de l'emplacement, l'impression grand format des bâches, le placement/pose et **toutes les taxes régionales et communales incluses**.
 * **FLEXIBILITÉ :** Ciblage ultra-localisé au plus près de la zone de chalandise.
 
-### 3. FORMATAGE STRICT DES RÉSULTATS (Règles M Move)
+### 3. FORMATAGE STRICT DES RÉSULTATS (Style sobre, épuré et direct)
 
-* **SCÉNARIO A : Identification d'un emplacement ("C'est quel panneau ?", "Panneau près de...")**
-  * Affiche UNIQUEMENT le nom cliquable : `[**#ID - Ville - Localisation** ↗️](lien)` (ne mets pas de crochets autour de l'ID à l'intérieur du lien, écris directement #ID).
-  * Ajoute la visibilité : `(Fréquentation : [frequentation_jour] véh./j | OTS : [ots_mensuel]/mois)`.
-  * Ne cite PAS les faces techniques IN/OUT.
+* **RÈGLES D'OR DE RÉDACTION :**
+  - **VAS DROIT À L'ESSENTIEL :** Pas de remplissage. Sois clair, concis et efficace.
+  - **PAS DE GRAS PARTOUT :** Soulage la lecture. N'utilise JAMAIS de gras sur les étiquettes ("Disponible dès", "Direction", "Trafic", "Contexte") ni sur chaque valeur. Réserve le gras uniquement pour le nom du panneau s'il n'est pas déjà dans un lien.
+  - **SUPPRIME "Implantation directe" :** Ne mentionne JAMAIS "Implantation directe".
+  - **AUCUNE "Face IN" OU "Face OUT" :** Parle UNIQUEMENT en termes de Direction de circulation (ex: Direction : Namur).
+  - **RÉPONSE EN BULLET POINTS :** Présente chaque panneau de manière structurée et aérée.
 
-* **SCÉNARIO B : Recommandation / Sélection de panneaux**
-  * Présente la sélection sous forme de liste à puces structurée.
-  * Pour chaque panneau, TOUJOURS inclure la disponibilité dès la première ligne :
-    `* [**#ID - Ville - Localisation** ↗️](lien)`
-      `* 📅 **Disponible dès :** [prochaine_dispo_mois]`
-      `* 🚗 **Impact :** [frequentation_jour] véh./jour (~[ots_mensuel] OTS/mois)`
-      `* 📍 **Direction :** [direction]`
-      `* 👁️ **Contexte :** [contexte_visibilite]`
-  * **RÈGLE OBLIGATOIRE SUR LES FACES ET DIRECTIONS (MANDAT STRICT) :**
-    - Ne mentionne JAMAIS les termes techniques régie "Face IN", "Face OUT", "Face A", "Face B" ou "Faces" sauf si l'utilisateur les évoque explicitement lui-même dans sa question.
-    - Exprime TOUJOURS le sens de circulation et l'orientation UNIQUEMENT en terme de **Direction** (ex: `📍 Direction : Namur`, `📍 Direction : E411 / Luxembourg`, `📍 Direction : Centre-ville`).
-    - Pour les disponibilités, formule simplement la date sans mention de face (ex: `📅 **Disponible dès :** **Décembre 2026**`), SANS JAMAIS ajouter "(Face OUT)" ou "(Face IN)".
+* **STRUCTURE EXACTE PAR EMPLACEMENT :**
+  • [#ID - Ville - Localisation ↗️](lien)
+    - Disponible dès : Mois Année
+    - Direction : [Direction]
+    - Trafic : [frequentation] véh./jour (~[ots] OTS/mois)
+    - Contexte : [Contexte de visibilité court]
 
-* **SCÉNARIO C : Demande de disponibilité ("Quand est-ce libre ?")**
-  * L'information N°1 à mettre en valeur immédiatement est la date de disponibilité : `📅 **Disponible dès : [prochaine_dispo_mois]**` (sans mention de face, uniquement la direction de flux).
-
-* **LOCALITÉS SECONDAIRES & VILLAGES (ex: Wierde, Naninne, Sclayn, Haute Bise, etc.)** :
-  * Si le client demande une localité ou village précis, mets en exergue le panneau qui y est implanté directement : `🎯 **Implantation directe à [Localité]**`.
-  * Présente ensuite les panneaux périphériques comme des axes stratégiques complémentaires en précisant la distance (ex: `À seulement 1,2 km`).
-
-* **STRUCTURE MULTI-MOIS (Obligatoire si la demande porte sur plusieurs mois)** :
-  * Si la recherche porte sur un trimestre ou plusieurs mois (ex: "octobre à décembre", "fin d'année") :
-  * Crée des sous-titres bien visibles pour chaque mois (`### Octobre 2026`, `### Novembre 2026`, etc.).
-  * Liste sous chaque mois les panneaux disponibles pour ce mois précis.
+* **DEMANDE DE DISPONIBILITÉ :**
+  - Phrase d'intro sobre (ex: "Voici les disponibilités pour vos remorques à [Lieu] :").
+  - Liste directe des emplacements selon le format ci-dessus.
 
 ### 4. CONSEILS CRÉATIFS & VISUELS
 * **RÈGLE STRICTE :** Ne donne de conseils créatifs et visuels QUE si le prospect pose explicitement une question sur la création, le visuel, le graphisme, la conception de l'affiche ou les formats !
@@ -146,10 +134,11 @@ Critères extraits :
 Sélection des Meilleurs Panneaux Qualifiés ({len(candidate_panels)} retenus) :
 {json.dumps(panels_context, ensure_ascii=False, indent=2)}
 
-Rédige maintenant ta réponse commerciale percutante, chaleureuse et structurée conformément aux règles M Move.
-Important :
-1. Mentionne explicitement pour chaque emplacement la prochaine date de disponibilité dès le début de chaque puce !
-2. Ne mentionne AUCUNE Face IN ou Face OUT : exprime UNIQUEMENT l'orientation en termes de Direction (ex: Direction : Namur).
+Rédige maintenant ta réponse commerciale selon les règles strictes suivantes :
+1. Va droit à l'essentiel, sous forme de bullet points clairs, sobres et aérés.
+2. PAS de gras partout : ne mets JAMAIS les étiquettes en gras (écris "Disponible dès :", "Direction :", "Trafic :", "Contexte :" sans astérisques de gras).
+3. AUCUNE mention "Implantation directe".
+4. AUCUNE mention "Face IN" ou "Face OUT" : uniquement la Direction (ex: Direction : Namur).
 """
 
         # Construction de l'historique de conversation
@@ -196,25 +185,25 @@ Important :
         return self._generate_fallback_response(candidate_panels, extracted_info, user_message)
 
     def _generate_fallback_response(self, panels: List[Dict[str, Any]], extracted: Dict[str, Any], user_msg: str = "") -> str:
-        """Génère une réponse structurée locale si l'API est temporairement indisponible."""
+        """Génère une réponse structurée épurée et directe."""
         if not panels:
-            return "Bonjour ! Aucun emplacement correspondant exactement à ces critères n'est disponible sur cette période. Souhaitez-vous élargir le rayon géographique ou explorer d'autres mois ?"
+            return "Aucun emplacement correspondant à ces critères n'est disponible sur cette période. Souhaitez-vous élargir la recherche géographique ?"
 
         intent = extracted.get("intent", "")
         msg_lower = (user_msg or "").lower()
         is_dispo_query = intent == "check_availability" or any(w in msg_lower for w in ["dispo", "libre", "quand", "prochaine"])
         
         loc_list = extracted.get("locations", [])
-        loc_str = f" à **{', '.join(loc_list)}**" if loc_list else ""
+        loc_str = f" à {', '.join(loc_list)}" if loc_list else ""
         
         if is_dispo_query:
-            intro = f"Bonjour ! Voici les **prochaines disponibilités** pour vos remorques 8m² M Move{loc_str} :\n"
+            intro = f"Voici les disponibilités pour vos remorques 8m²{loc_str} :\n"
         else:
-            intro = f"Bonjour ! Voici notre sélection d'emplacements stratégiques 8m² M Move{loc_str} :\n"
+            intro = f"Voici la sélection d'emplacements 8m²{loc_str} :\n"
 
         lines = [intro]
         for p in panels:
-            dist_str = f" (à {p['distance_km']} km)" if p.get("distance_km") is not None else ""
+            dist_str = f" (à {p['distance_km']} km)" if p.get("distance_km") and p.get("distance_km") > 0 else ""
             freq_str = f"{p.get('frequentation_jour', 0):,}".replace(",", " ")
             ots_str = f"{p.get('ots_mensuel', 0):,}".replace(",", " ")
             direction = p.get("direction_in") or p.get("direction_out") or "Double sens"
@@ -223,21 +212,24 @@ Important :
             if not user_mentions_face:
                 dispo_humaine = re.sub(r"\s*\(Face[^\)]*\)", "", str(dispo_humaine), flags=re.IGNORECASE).strip()
 
-            direct_tag = "🎯 **Implantation directe** — " if p.get("is_direct_match") else ""
-            
+            contexte = p.get('contexte_visibilite') or ''
+            contexte_clean = re.sub(r"^\[Zoning\]\s*", "", contexte)
+
             lines.append(
-                f"* {direct_tag}[**#{p['id']} - {p['ville']} - {p['localisation']}** ↗️]({p['lien']})\n"
-                f"  * 📅 **Disponible dès :** **{dispo_humaine}**\n"
-                f"  * 🚗 **Trafic & Impact :** {freq_str} véh./jour (~{ots_str} OTS/mois){dist_str}\n"
-                f"  * 📍 **Direction :** {direction}\n"
-                f"  * 👁️ **Contexte :** {p.get('contexte_visibilite')}\n"
+                f"• [#{p['id']} - {p['ville']} - {p['localisation']} ↗️]({p['lien']})\n"
+                f"  - Disponible dès : {dispo_humaine}\n"
+                f"  - Direction : {direction}\n"
+                f"  - Trafic : {freq_str} véh./jour (~{ots_str} OTS/mois){dist_str}\n"
+                f"  - Contexte : {contexte_clean}\n"
             )
 
         is_creation_query = any(w in msg_lower for w in ["créat", "creat", "visuel", "affiche", "graphi", "design"])
         if is_creation_query:
             lines.append(
-                "\n💡 **Conseil M Move pour votre création :**\n"
-                "À 70 km/h, l'automobiliste dispose de 3 à 5 secondes pour lire votre affiche. "
-                "Privilégiez la **règle des 7 mots**, des typographies XXL à fort contraste et un visuel unique percutant !"
+                "\n💡 Conseil pour votre création :\n"
+                "• 7 mots maximum pour être lu à 70 km/h\n"
+                "• Typographie bâton XXL sans empattement\n"
+                "• Contraste élevé (fond/texte) et un seul visuel fort\n"
+                "• Pas de QR code en bord de route"
             )
         return "\n".join(lines)

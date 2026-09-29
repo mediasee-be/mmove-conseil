@@ -149,7 +149,7 @@ class ExtractorAgent:
             }
 
         # 2. Appel Gemini Flash pour extraction sémantique robuste
-        candidate_models = ["gemini-3.5-flash-lite", "gemini-2.5-flash", "gemini-3.5-flash", "gemini-3.8-flash"]
+        candidate_models = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
 
         payload = {
             "system_instruction": {
@@ -222,8 +222,12 @@ class ExtractorAgent:
             except ValueError:
                 pass
 
+        intent = "search_panels"
+        if any(k in lower for k in ["dispo", "disponibilité", "disponibilites", "libre", "quand", "prochaine"]):
+            intent = "check_availability"
+
         return {
-            "intent": "search_panels",
+            "intent": intent,
             "target_id": None,
             "locations": locations,
             "axes": axes,

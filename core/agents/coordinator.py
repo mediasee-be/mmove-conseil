@@ -9,7 +9,7 @@ Mesure les temps d'exécution et renvoie les données enrichies pour le frontend
 
 import time
 from typing import Dict, Any, List, Optional
-from .engine_tools import MmoveEngineTools, format_period_human
+from .engine_tools import MmoveEngineTools, format_period_human, get_friendly_dispo_label
 from .extractor_agent import ExtractorAgent
 from .sales_agent import SalesAgent
 from .sync_service import SyncManager
@@ -92,6 +92,8 @@ class CoordinatorAgent:
                     "prochaine_dispo": trailer.get("prochaine_dispo"),
                     "prochaine_dispo_in": trailer.get("prochaine_dispo_in"),
                     "prochaine_dispo_out": trailer.get("prochaine_dispo_out"),
+                    "prochaine_dispo_human": format_period_human(trailer.get("prochaine_dispo")),
+                    "prochaine_dispo_label": get_friendly_dispo_label(trailer),
                     "availability": avail_info,
                     "photo_url": photo,
                     "total_score": 100.0
@@ -108,8 +110,8 @@ class CoordinatorAgent:
                 require_availability=False
             )
 
-        elif intent == "search_panels":
-            # Recherche géographique & critères
+        else:
+            # Recherche géographique & critères (search_panels ou check_availability par zone)
             target_periods = extracted.get("target_periods", [])
             req_dispo = len(target_periods) > 0
             candidate_panels = self.engine.search_and_rank(
@@ -141,7 +143,8 @@ class CoordinatorAgent:
         for p in candidate_panels:
             dir_str = p.get("direction_in") or p.get("direction_out") or "Double sens"
             avail_months = p.get("availability", {}).get("available_months", [])
-            dispo_label = ", ".join([m["period_human"] for m in avail_months]) if avail_months else p.get("prochaine_dispo", "Disponible")
+            friendly_dispo = p.get("prochaine_dispo_label") or p.get("prochaine_dispo_human") or format_period_human(p.get("prochaine_dispo"))
+            dispo_label = ", ".join([m["period_human"] for m in avail_months]) if avail_months else friendly_dispo
             
             frontend_panels.append({
                 "remorque": p["id"],
@@ -160,6 +163,7 @@ class CoordinatorAgent:
                 "image_url": p.get("photo_url"),
                 "is_direct_match": p.get("is_direct_match", False),
                 "prochaine_dispo": dispo_label,
+                "prochaine_dispo_human": friendly_dispo,
                 "active": "O",
                 "score": p.get("total_score")
             })

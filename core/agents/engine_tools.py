@@ -119,6 +119,27 @@ def format_period_human(period_str: str) -> str:
         return f"{MONTH_MAP[parts[1]]} {parts[0]}"
     return period_str
 
+def get_friendly_dispo_label(trailer_dict: Dict[str, Any]) -> str:
+    """Produit un libellé clair et lisible pour le client (ex: Dès Décembre 2026 (Face OUT))"""
+    p_any = trailer_dict.get("prochaine_dispo")
+    p_in = trailer_dict.get("prochaine_dispo_in")
+    p_out = trailer_dict.get("prochaine_dispo_out")
+
+    if not p_any or p_any == "Sur demande (+1 an)":
+        return "Sur demande (+1 an)"
+
+    h_any = format_period_human(p_any)
+    h_in = format_period_human(p_in) if p_in else None
+    h_out = format_period_human(p_out) if p_out else None
+
+    if p_in == p_out and p_in == p_any:
+        return f"{h_any} (Faces IN & OUT)"
+    elif p_any == p_out and p_any != p_in:
+        return f"{h_any} (Face OUT)"
+    elif p_any == p_in and p_any != p_out:
+        return f"{h_any} (Face IN)"
+    return h_any
+
 def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> Optional[float]:
     """Calcul distance en kilomètres entre 2 coordonnées GPS (formule de Haversine)"""
     if lat1 is None or lon1 is None or lat2 is None or lon2 is None:
@@ -435,6 +456,8 @@ class MmoveEngineTools:
                 "prochaine_dispo": t.get("prochaine_dispo"),
                 "prochaine_dispo_in": t.get("prochaine_dispo_in"),
                 "prochaine_dispo_out": t.get("prochaine_dispo_out"),
+                "prochaine_dispo_human": format_period_human(t.get("prochaine_dispo")),
+                "prochaine_dispo_label": get_friendly_dispo_label(t),
                 "availability": avail_info,
                 "photo_url": photo,
                 "is_direct_match": has_direct_physical_match,

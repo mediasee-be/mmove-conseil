@@ -410,13 +410,19 @@ class MmoveHandler(BaseHTTPRequestHandler):
                     <div class="absolute bottom-2 left-2 bg-blue-600/90 backdrop-blur-sm text-white text-[11px] font-semibold px-2 py-0.5 rounded-md shadow-sm">
                         ${distText}
                     </div>` : ''}
+
+                    ${p.prochaine_dispo ? `
+                    <div class="absolute bottom-2 right-2 bg-emerald-700/95 backdrop-blur-sm text-white text-[11px] font-bold px-2 py-0.5 rounded-md shadow-sm border border-emerald-400/40 flex items-center space-x-1">
+                        <i class="fa-regular fa-calendar"></i>
+                        <span>Dès ${p.prochaine_dispo_human || p.prochaine_dispo}</span>
+                    </div>` : ''}
                 </div>
 
                 <!-- 2. Corps de la carte -->
                 <div class="p-4 space-y-3 flex-1 flex flex-col justify-between">
                     <div>
                         <!-- En-tête : Titre & Badge Face -->
-                        <div class="flex justify-between items-start gap-2 mb-1.5">
+                        <div class="flex justify-between items-start gap-2 mb-1">
                             <div>
                                 <a href="${linkUrl}" target="_blank" rel="noopener noreferrer" 
                                    class="font-bold text-base text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1.5 group-hover:text-blue-700 dark:group-hover:text-blue-300">
@@ -430,8 +436,15 @@ class MmoveHandler(BaseHTTPRequestHandler):
                             </span>
                         </div>
 
+                        <!-- Badge Disponibilité Mis en Valeur -->
+                        ${p.prochaine_dispo ? `
+                        <div class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300 font-bold text-xs shadow-xs">
+                            <i class="fa-regular fa-calendar-check text-emerald-600 dark:text-emerald-400"></i>
+                            <span>Disponible dès : <b>${p.prochaine_dispo_human || p.prochaine_dispo}</b></span>
+                        </div>` : ''}
+
                         <!-- Axe routier & Direction -->
-                        <div class="space-y-1 text-slate-600 dark:text-slate-300 text-xs mt-2">
+                        <div class="space-y-1 text-slate-600 dark:text-slate-300 text-xs mt-2.5">
                             ${p.axe_routier ? `
                             <div class="flex items-center space-x-2">
                                 <i class="fa-solid fa-road text-slate-400 dark:text-slate-500 w-3.5 text-center"></i>
@@ -472,7 +485,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
                         <div class="bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs px-3 py-2 rounded-xl flex items-center justify-between font-medium">
                             <span class="flex items-center space-x-1.5">
                                 <i class="fa-regular fa-calendar-check text-emerald-600 dark:text-emerald-400 text-sm"></i>
-                                <span>Dispo dès : <b>${p.prochaine_dispo}</b></span>
+                                <span>Dispo dès : <b>${p.prochaine_dispo_human || p.prochaine_dispo}</b></span>
                             </span>
                             <a href="${linkUrl}" target="_blank" rel="noopener noreferrer" 
                                class="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 hover:text-emerald-900 dark:hover:text-white underline">

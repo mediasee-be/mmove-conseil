@@ -33,14 +33,16 @@ Tu es l'**Agent Commercial Expert** de la société **M Move** (remorquepublicit
 
 * **SCÉNARIO B : Recommandation / Sélection de panneaux**
   * Présente la sélection sous forme de liste à puces structurée.
-  * Pour chaque panneau :
-    `* [**#ID - Ville - Localisation** ↗️](lien)` - **Direction :** [direction]
-    *Distance : [distance_km] km | Trafic : [frequentation_jour] véh./jour (~[ots_mensuel] OTS/mois)*
-    *Atout visibilité :* [contexte_visibilite]
-  * Ne cite JAMAIS les termes techniques de régie ("Face IN" / "Face OUT") aux clients.
+  * Pour chaque panneau, TOUJOURS inclure la disponibilité dès la première ligne :
+    `* [**#ID - Ville - Localisation** ↗️](lien)`
+      `* 📅 **Disponible dès :** [prochaine_dispo_mois]`
+      `* 🚗 **Impact :** [frequentation_jour] véh./jour (~[ots_mensuel] OTS/mois)`
+      `* 📍 **Direction :** [direction]`
+      `* 👁️ **Contexte :** [contexte_visibilite]`
+  * Ne cite pas les acronymes de régie bruts aux clients mais formule clairement (ex: "Disponible dès Décembre 2026 (Face OUT)").
 
 * **SCÉNARIO C : Demande de disponibilité ("Quand est-ce libre ?")**
-  * Pour chaque panneau, indique clairement : `📅 **Disponible dès : [prochaine_dispo_mois]**`.
+  * L'information N°1 à mettre en valeur immédiatement est la date de disponibilité : `📅 **Disponible dès : [prochaine_dispo_mois]**`.
 
 * **LOCALITÉS SECONDAIRES & VILLAGES (ex: Wierde, Naninne, Sclayn, Haute Bise, etc.)** :
   * Si le client demande une localité ou village précis, mets en exergue le panneau qui y est implanté directement : `🎯 **Implantation directe à [Localité]**`.
@@ -73,7 +75,7 @@ Rappelle au prospect que l'attention d'un automobiliste est de **3 à 5 secondes
 class SalesAgent:
     """Agent Commercial Gemini Flash produisant la synthèse client finale."""
 
-    def __init__(self, api_key: Optional[str] = None, model: str = "gemini-2.5-flash"):
+    def __init__(self, api_key: Optional[str] = None, model: str = "gemini-2.0-flash"):
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY", DEFAULT_API_KEY)
         self.model = model
         self.ssl_ctx = ssl._create_unverified_context()
@@ -92,6 +94,7 @@ class SalesAgent:
             avail_months_str = ", ".join(
                 [f"{m['period_human']} ({m['face']})" for m in p.get("availability", {}).get("available_months", [])]
             )
+            dispo_human = p.get("prochaine_dispo_label") or p.get("prochaine_dispo_human") or p.get("prochaine_dispo", "Disponible")
             panels_context.append({
                 "id": p.get("id"),
                 "ville": p.get("ville"),
@@ -103,8 +106,8 @@ class SalesAgent:
                 "ots_mensuel": f"{p.get('ots_mensuel', 0):,}".replace(",", " "),
                 "contexte_visibilite": p.get("contexte_visibilite"),
                 "lien": p.get("lien", ""),
-                "prochaine_dispo_mois": p.get("prochaine_dispo"),
-                "mois_disponibles_periode": avail_months_str or "Disponible",
+                "prochaine_dispo_mois": dispo_human,
+                "mois_disponibles_periode": avail_months_str or f"Disponible dès {dispo_human}",
                 "is_direct_match": p.get("is_direct_match", False),
                 "photo_url": p.get("photo_url")
             })
@@ -124,6 +127,7 @@ Sélection des Meilleurs Panneaux Qualifiés ({len(candidate_panels)} retenus) :
 {json.dumps(panels_context, ensure_ascii=False, indent=2)}
 
 Rédige maintenant ta réponse commerciale percutante, chaleureuse et structurée conformément aux règles M Move.
+Important : Mentionne explicitement pour chaque emplacement la prochaine date de disponibilité dès le début de chaque puce !
 """
 
         # Construction de l'historique de conversation
@@ -148,7 +152,7 @@ Rédige maintenant ta réponse commerciale percutante, chaleureuse et structuré
             }
         }
 
-        candidate_models = ["gemini-2.5-flash", "gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.8-flash"]
+        candidate_models = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
         data_bytes = json.dumps(payload).encode("utf-8")
 
         for mod in candidate_models:
@@ -164,29 +168,44 @@ Rédige maintenant ta réponse commerciale percutante, chaleureuse et structuré
                     text_out = res_body["candidates"][0]["content"]["parts"][0]["text"]
                     return text_out
             except Exception as e:
-                print(f"Sales Agent warning with model {mod}: {e}")
+                pass
 
         # Fallback local
-        return self._generate_fallback_response(candidate_panels, extracted_info)
+        return self._generate_fallback_response(candidate_panels, extracted_info, user_message)
 
-    def _generate_fallback_response(self, panels: List[Dict[str, Any]], extracted: Dict[str, Any]) -> str:
+    def _generate_fallback_response(self, panels: List[Dict[str, Any]], extracted: Dict[str, Any], user_msg: str = "") -> str:
         """Génère une réponse structurée locale si l'API est temporairement indisponible."""
         if not panels:
             return "Bonjour ! Aucun emplacement correspondant exactement à ces critères n'est disponible sur cette période. Souhaitez-vous élargir le rayon géographique ou explorer d'autres mois ?"
 
-        lines = [
-            "Bonjour ! Voici notre sélection d'emplacements stratégiques 8m² M Move pour maximiser votre visibilité :\n"
-        ]
+        intent = extracted.get("intent", "")
+        msg_lower = (user_msg or "").lower()
+        is_dispo_query = intent == "check_availability" or any(w in msg_lower for w in ["dispo", "libre", "quand", "prochaine"])
+        
+        loc_list = extracted.get("locations", [])
+        loc_str = f" à **{', '.join(loc_list)}**" if loc_list else ""
+        
+        if is_dispo_query:
+            intro = f"Bonjour ! Voici les **prochaines disponibilités** pour vos remorques 8m² M Move{loc_str} :\n"
+        else:
+            intro = f"Bonjour ! Voici notre sélection d'emplacements stratégiques 8m² M Move{loc_str} :\n"
+
+        lines = [intro]
         for p in panels:
-            dist_str = f" à {p['distance_km']} km" if p.get("distance_km") is not None else ""
+            dist_str = f" (à {p['distance_km']} km)" if p.get("distance_km") is not None else ""
             freq_str = f"{p.get('frequentation_jour', 0):,}".replace(",", " ")
             ots_str = f"{p.get('ots_mensuel', 0):,}".replace(",", " ")
             direction = p.get("direction_in") or p.get("direction_out") or "Double sens"
+            dispo_humaine = p.get("prochaine_dispo_label") or p.get("prochaine_dispo_human") or p.get("prochaine_dispo", "Disponible")
+
+            direct_tag = "🎯 **Implantation directe** — " if p.get("is_direct_match") else ""
             
             lines.append(
-                f"* [**#{p['id']} - {p['ville']} - {p['localisation']}** ↗️]({p['lien']}) - **Direction :** {direction}\n"
-                f"  *Impact :* {freq_str} véh./jour (~{ots_str} OTS/mois){dist_str}\n"
-                f"  *Contexte :* {p.get('contexte_visibilite')}\n"
+                f"* {direct_tag}[**#{p['id']} - {p['ville']} - {p['localisation']}** ↗️]({p['lien']})\n"
+                f"  * 📅 **Disponible dès :** **{dispo_humaine}**\n"
+                f"  * 🚗 **Trafic & Impact :** {freq_str} véh./jour (~{ots_str} OTS/mois){dist_str}\n"
+                f"  * 📍 **Direction :** {direction}\n"
+                f"  * 👁️ **Contexte :** {p.get('contexte_visibilite')}\n"
             )
 
         lines.append(

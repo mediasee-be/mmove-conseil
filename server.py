@@ -49,6 +49,46 @@ class MmoveHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(sync_info, ensure_ascii=False).encode("utf-8"))
             return
 
+        # Fichiers statiques (images, logos, avatars)
+        if self.path.startswith("/static/"):
+            rel_path = self.path.lstrip("/")
+            # Sécurité anti-traversal
+            clean_path = os.path.normpath(rel_path)
+            if clean_path.startswith("static/") and os.path.exists(clean_path) and os.path.isfile(clean_path):
+                content_type = "application/octet-stream"
+                if clean_path.endswith(".png"):
+                    content_type = "image/png"
+                elif clean_path.endswith(".jpg") or clean_path.endswith(".jpeg"):
+                    content_type = "image/jpeg"
+                elif clean_path.endswith(".webp"):
+                    content_type = "image/webp"
+                elif clean_path.endswith(".svg"):
+                    content_type = "image/svg+xml"
+                
+                self.send_response(200)
+                self.send_header("Content-Type", content_type)
+                self.send_header("Cache-Control", "public, max-age=86400")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                with open(clean_path, "rb") as f:
+                    self.wfile.write(f.read())
+                return
+            else:
+                self._set_headers(404, "text/plain")
+                self.wfile.write(b"Fichier non trouve")
+                return
+
+        if self.path == "/favicon.ico":
+            icon_path = "static/bot-avatar.png"
+            if os.path.exists(icon_path):
+                self.send_response(200)
+                self.send_header("Content-Type", "image/png")
+                self.send_header("Cache-Control", "public, max-age=86400")
+                self.end_headers()
+                with open(icon_path, "rb") as f:
+                    self.wfile.write(f.read())
+                return
+
         # Interface Web interactive locale
         if self.path == "/" or self.path == "/index.html":
             self._set_headers(200, "text/html; charset=utf-8")
@@ -58,6 +98,8 @@ class MmoveHandler(BaseHTTPRequestHandler):
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>M Move - Conseil en Affichage 8m²</title>
+    <!-- Favicon Bot Avatar -->
+    <link rel="icon" type="image/png" href="/static/bot-avatar.png">
     <!-- Google Fonts: Plus Jakarta Sans & Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -151,8 +193,8 @@ class MmoveHandler(BaseHTTPRequestHandler):
     <!-- HEADER -->
     <header class="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between shadow-sm z-10 shrink-0">
         <div class="flex items-center space-x-3">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#F4920D] to-[#2EA3F2] flex items-center justify-center shadow text-white font-extrabold text-xl shrink-0">
-                M
+            <div class="relative w-11 h-11 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm shrink-0 flex items-center justify-center p-0.5">
+                <img src="/static/bot-avatar.png" alt="M Move Bot" class="w-full h-full object-cover object-top rounded-xl">
             </div>
             <div>
                 <h1 class="text-base md:text-lg font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
@@ -187,8 +229,8 @@ class MmoveHandler(BaseHTTPRequestHandler):
     <div id="chatMessages" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-5 max-w-5xl mx-auto w-full">
         <!-- Message initial de bienvenue -->
         <div class="flex items-start space-x-3">
-            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#F4920D] to-[#2EA3F2] flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-sm">
-                IA
+            <div class="w-9 h-9 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xs shrink-0 mt-0.5">
+                <img src="/static/bot-avatar.png" alt="Conseiller M Move" class="w-full h-full object-cover object-top">
             </div>
             <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl rounded-tl-sm p-5 max-w-3xl text-sm leading-relaxed shadow-sm text-slate-800 dark:text-slate-100">
                 <p class="font-bold text-blue-600 dark:text-blue-400 mb-2 flex items-center gap-1.5">
@@ -503,8 +545,8 @@ class MmoveHandler(BaseHTTPRequestHandler):
             div.className = `flex items-start space-x-3 ${isUser ? 'justify-end' : ''}`;
 
             const avatar = isUser ? '' : `
-                <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#F4920D] to-[#2EA3F2] flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-sm mt-1">
-                    IA
+                <div class="w-9 h-9 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xs shrink-0 mt-1">
+                    <img src="/static/bot-avatar.png" alt="Conseiller M Move" class="w-full h-full object-cover object-top">
                 </div>
             `;
 
@@ -558,8 +600,11 @@ class MmoveHandler(BaseHTTPRequestHandler):
             div.id = id;
             div.className = 'flex items-start space-x-3';
             div.innerHTML = `
-                <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#F4920D] to-[#2EA3F2] flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-sm opacity-70">
-                    <i class="fa-solid fa-spinner fa-spin"></i>
+                <div class="relative w-9 h-9 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xs shrink-0 mt-0.5">
+                    <img src="/static/bot-avatar.png" alt="Conseiller M Move" class="w-full h-full object-cover object-top opacity-60">
+                    <div class="absolute inset-0 bg-blue-600/30 flex items-center justify-center">
+                        <i class="fa-solid fa-spinner fa-spin text-white text-xs"></i>
+                    </div>
                 </div>
                 <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl rounded-tl-sm p-4 text-sm text-slate-500 dark:text-slate-400 flex items-center space-x-3 shadow-sm">
                     <span class="animate-pulse flex items-center gap-2">

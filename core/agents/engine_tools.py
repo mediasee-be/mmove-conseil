@@ -198,8 +198,48 @@ class MmoveEngineTools:
         except Exception as e:
             print(f"Warning saving geocache: {e}")
 
+    def _geocode_google(self, query: str) -> Optional[Tuple[float, float]]:
+        """Interroge l'API Google Places / Google Maps Geocoding pour localiser des entreprises, commerces ou adresses en Belgique."""
+        api_key = os.environ.get("GOOGLE_MAPS_API_KEY") or os.environ.get("GOOGLE_PLACES_API_KEY") or os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            return None
+
+        # 1. Tentative Google Places API (Find Place Text Query : spécialement conçu pour les POI et entreprises)
+        try:
+            url_places = f"https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input={urllib.parse.quote(query + ', Belgique')}&inputtype=textquery&fields=geometry,name,formatted_address&locationbias=circle:150000@50.46,4.86&key={api_key}"
+            req = urllib.request.Request(url_places)
+            ssl_ctx = ssl._create_unverified_context()
+            with urllib.request.urlopen(req, context=ssl_ctx, timeout=4) as res:
+                data = json.loads(res.read().decode("utf-8"))
+                candidates = data.get("candidates", [])
+                if candidates and "geometry" in candidates[0] and "location" in candidates[0]["geometry"]:
+                    loc = candidates[0]["geometry"]["location"]
+                    lat, lng = float(loc["lat"]), float(loc["lng"])
+                    print(f"[GooglePlaces] '{query}' localisé : ({lat}, {lng}) - {candidates[0].get('name')} ({candidates[0].get('formatted_address')})")
+                    return (lat, lng)
+        except Exception as e:
+            print(f"[GooglePlaces Warning] {e}")
+
+        # 2. Tentative Google Geocoding API (adresses postales, voiries)
+        try:
+            url_geo = f"https://maps.googleapis.com/maps/api/geocode/json?address={urllib.parse.quote(query)}&components=country:BE&key={api_key}"
+            req = urllib.request.Request(url_geo)
+            ssl_ctx = ssl._create_unverified_context()
+            with urllib.request.urlopen(req, context=ssl_ctx, timeout=4) as res:
+                data = json.loads(res.read().decode("utf-8"))
+                results = data.get("results", [])
+                if results and "geometry" in results[0] and "location" in results[0]["geometry"]:
+                    loc = results[0]["geometry"]["location"]
+                    lat, lng = float(loc["lat"]), float(loc["lng"])
+                    print(f"[GoogleGeocode] '{query}' localisé : ({lat}, {lng}) - {results[0].get('formatted_address')}")
+                    return (lat, lng)
+        except Exception as e:
+            print(f"[GoogleGeocode Warning] {e}")
+
+        return None
+
     def geocode(self, query: str) -> Optional[Tuple[float, float]]:
-        """Résout une adresse, commune ou localité secondaire en coordonnées (lat, lng) avec cache."""
+        """Résout une adresse, entreprise, commune ou localité secondaire en coordonnées (lat, lng) avec cache."""
         if not query or len(query.strip()) < 2:
             return None
 
@@ -222,7 +262,15 @@ class MmoveEngineTools:
                     self._save_geocache()
                     return coords
 
-        # 2. Appel Nominatim sécurisé avec en-têtes et contexte SSL
+        # 2. Appel Google Maps / Google Places API (si clé disponible)
+        google_coords = self._geocode_google(query)
+        if google_coords:
+            self.geocache[clean_q] = google_coords
+            self.geocache[clean_be] = google_coords
+            self._save_geocache()
+            return google_coords
+
+        # 3. Appel Nominatim sécurisé avec en-têtes et contexte SSL
         try:
             url = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(clean_be)}&format=json&limit=1&countrycodes=be"
             req = urllib.request.Request(url, headers={"User-Agent": "MmoveAI/1.0 (contact@mediasee.be)"})

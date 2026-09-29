@@ -133,7 +133,25 @@ class CoordinatorAgent:
 
         timing["engine_ms"] = round((time.time() - t0) * 1000, 1)
 
-        # 3. Synthèse Commerciale Experte
+        # 3. Vérification si une localisation ou entreprise demandée est introuvable sur la carte
+        locations = extracted.get("locations", [])
+        if locations and not any(p.get("distance_km") is not None or p.get("is_direct_match") for p in candidate_panels):
+            loc_name = locations[0]
+            timing["synthesis_ms"] = 1.0
+            timing["total_ms"] = round((time.time() - start_total) * 1000, 1)
+            final_text = (
+                f"Je n'ai pas pu localiser précisément l'entreprise ou l'adresse « {loc_name} » sur la carte.\n\n"
+                f"Pourriez-vous me préciser sa commune, son code postal ou un axe routier proche (ex: Gembloux, Namur, Wavre, N4...) ? "
+                f"Je pourrai ainsi vous indiquer immédiatement les panneaux les plus proches et leurs disponibilités."
+            )
+            return {
+                "text": final_text,
+                "panels": [],
+                "timing_ms": timing,
+                "context": {"extracted": extracted}
+            }
+
+        # Synthèse Commerciale Experte
         t0 = time.time()
         final_text = self.sales.generate_pitch(
             user_message=user_message,

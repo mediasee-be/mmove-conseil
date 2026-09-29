@@ -30,7 +30,7 @@ Année de référence : 2026 (les dates sans année font référence à 2026, ou
 
 2. "target_id" : ID numérique de remorque si mentionné (ex: "#114" -> "114", "panneau 102" -> "102")
 
-3. "locations" : Villes, communes, villages, hameaux, localités secondaires, zonings ou points d'intérêt belges (ex: ["Wierde", "Naninne", "Sclayn", "Haute Bise", "Basse Sambre", "Erpent", "Namur", "Wavre", "Clinique d'Ottignies"]). Capture TOUJOURS le nom spécifique du village ou de la localité même s'il s'agit d'une section de commune.
+3. "locations" : Villes, communes, villages, zonings, adresses, ou noms d'entreprises / commerces belges (ex: ["Wierde", "Naninne", "Sclayn", "Namur", "Wavre", "Greenrobot", "Decathlon", "Chaussée de Tirlemont"]). Capture TOUJOURS le nom spécifique de l'entreprise, du commerce, du village ou de la rue.
 
 4. "axes" : Axes routiers mentionnés (ex: ["N4", "E411", "E42", "N25", "N29", "N89", "N90"])
 
@@ -195,8 +195,24 @@ class ExtractorAgent:
         """Analyseur de secours par expressions régulières."""
         lower = msg.lower()
         locations = []
+        # Extraction de points d'intérêt, entreprises ou commerces (ex: "proche de chez Greenrobot", "près de Decathlon")
+        poi_match = re.search(
+            r"(?:près|proche|autour|à côté|proximité)\s+de\s+(?:chez\s+)?([A-Za-z0-9À-ÿ\s'-]+?)(?:\s+(?:en|pour|dès|dans|avec|direction|vers|\?|\.|$)|$)",
+            msg, re.IGNORECASE
+        )
+        if not poi_match:
+            poi_match = re.search(
+                r"de\s+chez\s+([A-Za-z0-9À-ÿ\s'-]+?)(?:\s+(?:en|pour|dès|dans|avec|direction|vers|\?|\.|$)|$)",
+                msg, re.IGNORECASE
+            )
+        if poi_match:
+            candidate_poi = poi_match.group(1).strip()
+            candidate_poi = re.sub(r"^(?:la\s+|le\s+|l'|les\s+)", "", candidate_poi, flags=re.IGNORECASE).strip()
+            if len(candidate_poi) >= 3 and candidate_poi.lower() not in ["namur", "wavre", "panneau", "remorque", "moi", "vous", "nous"]:
+                locations.append(candidate_poi.title())
+
         for city in ["namur", "wavre", "nivelles", "ottignies", "liège", "charleroi", "mons", "gembloux", "perwez", "jodoigne", "ciney", "dinant"]:
-            if city in lower:
+            if city in lower and city.capitalize() not in locations:
                 locations.append(city.capitalize())
 
         axes = []

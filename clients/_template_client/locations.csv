@@ -1,0 +1,4 @@
+id,nom,adresse,ville,latitude,longitude,type,statut,url,image,description
+1,Magasin Namur Centre,Rue de Fer 12,Namur,50.4674,4.8675,Boutique,Actif,https://exemple.be/namur,,Notre point de vente principal au coeur de Namur
+2,Magasin Charleroi Ville 2,Grand Rue 143,Charleroi,50.4182,4.4539,Grand magasin,Actif,https://exemple.be/charleroi,,Grand magasin avec parking
+3,Magasin Liège Belle-Île,Quai des Vennes 1,Liège,50.6186,5.5861,Grand magasin,Actif,https://exemple.be/liege,,Centre commercial Belle-Île

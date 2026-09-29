@@ -1,0 +1,19 @@
+{
+  "client_id": "mon-prospect",
+  "client_name": "Nom du Prospect",
+  "client_sector": "Secteur d'activité (ex: Automobile, Retail, Fitness...)",
+  "client_website": "https://www.exemple.be",
+  "branding": {
+    "primary_color": "#2563EB",
+    "accent_color": "#F4920D",
+    "logo_url": "",
+    "icon_type": "store"
+  },
+  "terminology": {
+    "entity_name_singular": "Point de vente",
+    "entity_name_plural": "Points de vente",
+    "entity_verb": "implantés"
+  },
+  "radii": [5, 10],
+  "default_filter": "10k"
+}

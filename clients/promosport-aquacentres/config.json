@@ -1,0 +1,23 @@
+{
+  "client_id": "promosport-aquacentres",
+  "client_name": "PromoSport (Aquacentres)",
+  "client_sector": "Centres Aquatiques & Natation",
+  "client_website": "https://www.promo-sport.be/fr/cours-natation",
+  "branding": {
+    "primary_color": "#00A1E4",
+    "accent_color": "#F7B507",
+    "logo_url": "",
+    "icon_type": "water"
+  },
+  "terminology": {
+    "entity_name_singular": "Aquacentre",
+    "entity_name_plural": "Aquacentres & Bassins",
+    "entity_verb": "implantés"
+  },
+  "radii": [
+    5,
+    10,
+    20
+  ],
+  "default_filter": "all"
+}

@@ -1,0 +1,13 @@
+id,nom,adresse,ville,latitude,longitude,type,statut,url,image,description
+AUTO-01,Concession Namur Ouest (Peugeot - Citroën),Chaussée de Louvain 280,Namur,50.4851,4.8721,Concession Principale,Actif,https://exemple-auto.be/namur,,Showroom véhicules neufs et occasion avec atelier mécanique
+AUTO-02,Centre Occasion Namur Sud,Chaussée de Dinant 105,Wépion,50.4289,4.8631,Centre Véhicules Occasion,Actif,https://exemple-auto.be/wepion,,Parc de 80 véhicules révisés et garantis
+AUTO-03,Concession Charleroi Gosselies,Rue Pont-à-Migneloux 45,Gosselies,50.4722,4.4418,Concession & Carrosserie,Actif,https://exemple-auto.be/gosselies,,Pôle automobile à proximité immédiate de l'A54
+AUTO-04,Showroom Charleroi Ville,Boulevard Tirou 88,Charleroi,50.4093,4.4422,Showroom Urbain,Actif,https://exemple-auto.be/charleroi,,Showroom de centre-ville et mobilités électriques
+AUTO-05,Concession Sambreville (Basse Sambre),Rue de Fosses 120,Tamines,50.4312,4.6125,Concession & Atelier,Actif,https://exemple-auto.be/tamines,,Concession régionale Basse-Sambre
+AUTO-06,Concession Nivelles Sud,Chaussée de Mons 95,Nivelles,50.5912,4.3214,Concession Principale,Actif,https://exemple-auto.be/nivelles,,Concession multimarque avec service après-vente
+AUTO-07,Concession Huy - Meuse,Chaussée de Liège 42,Huy,50.5234,5.2498,Concession & Showroom,Actif,https://exemple-auto.be/huy,,Concession en bord de Meuse axe N90
+AUTO-08,Concession Liège Rocourt,Chaussée de Tongres 260,Rocourt,50.6698,5.5532,Concession & Pôle Utilitaires,Actif,https://exemple-auto.be/rocourt,,Grand pôle véhicules utilitaires et particuliers
+AUTO-09,Concession Liège Belle-Île,Quai des Vennes 8,Liège,50.6214,5.5891,Showroom & Atelier Express,Actif,https://exemple-auto.be/liege,,Showroom moderne et atelier entretien rapide
+AUTO-10,Concession Verviers Ouest,Rue de Heusy 104,Verviers,50.5891,5.8612,Concession Régionale,Actif,https://exemple-auto.be/verviers,,Service vente et après-vente agréé
+AUTO-11,Centre Occasions Gembloux,Chaussée de Tirlemont 55,Gembloux,50.5645,4.6934,Parc Occasions,Actif,https://exemple-auto.be/gembloux,,Vente toutes marques axe N4
+AUTO-12,Concession Mons Grands Prés,Place des Grands Prés 1,Mons,50.4578,3.9312,Showroom,Actif,https://exemple-auto.be/mons,,Espace commercial Grands Prés

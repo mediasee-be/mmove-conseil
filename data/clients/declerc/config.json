@@ -1,0 +1,10 @@
+{
+  "client_id": "declerc",
+  "client_name": "Groupe Declerc",
+  "client_sector": "Automobile & Mobilité (Concessions)",
+  "client_color": "#0284c7",
+  "client_icon": "car",
+  "entity_singular": "Concession",
+  "entity_plural": "Concessions",
+  "data_file": "locations.csv"
+}

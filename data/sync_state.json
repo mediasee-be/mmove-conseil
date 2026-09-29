@@ -1,0 +1,311 @@
+{
+  "last_panels_check": 1790241331.118398,
+  "last_dispo_check": 1790682361.3991349,
+  "last_panels_updated": 1790241331.118398,
+  "last_dispo_updated": 1790241330.6004102,
+  "panels_interval_sec": 604800,
+  "dispo_interval_sec": 3600,
+  "status": "idle",
+  "history": [
+    {
+      "timestamp": "2026-09-26T08:21:08.463175",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-26T09:22:53.468683",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-26T10:27:38.925464",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-26T11:46:48.416385",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-26T12:54:50.829634",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-26T14:40:05.373585",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-26T15:56:58.794003",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-26T16:57:42.407979",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-26T17:58:42.676084",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-26T18:59:52.589051",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-26T20:00:19.188254",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-26T21:01:37.757074",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-26T22:08:58.666038",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-26T23:15:46.625216",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-27T01:42:38.795226",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-27T04:42:42.258180",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-27T06:24:03.376468",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-27T07:28:50.641203",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-27T08:53:07.420871",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-27T09:53:29.077179",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-27T10:57:21.694507",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-27T12:18:49.509897",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-27T13:50:31.428407",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-27T14:58:56.948612",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-27T15:59:41.587766",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-27T17:00:50.767318",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-27T18:01:35.274590",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-27T19:02:47.813442",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-27T20:03:45.891598",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-27T21:04:39.022160",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-27T22:40:35.615575",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-27T23:55:00.475559",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-28T00:55:54.820594",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-28T02:20:05.418310",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-28T03:59:54.486280",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-28T05:57:54.509135",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-28T07:00:39.821009",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-28T08:01:00.429551",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-28T09:01:12.466389",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-28T10:01:40.775149",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-28T11:01:41.189589",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-28T12:01:46.182486",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-28T13:02:30.110980",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-28T14:06:16.667777",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-28T15:06:24.007602",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-28T16:09:00.707540",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-29T10:45:59.451335",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-29T11:46:00.813889",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-29T12:46:01.129372",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    },
+    {
+      "timestamp": "2026-09-29T13:46:01.415340",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités vérifiées : aucune modification détectée",
+      "updated": false
+    }
+  ]
+}

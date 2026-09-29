@@ -1,0 +1,9 @@
+id,nom,adresse,ville,code_postal,latitude,longitude,telephone,site_web,type
+1,Declerc Arlon,Route de Luxembourg 116,Arlon,6700,49.6731885,5.8261014,061 27 51 00,https://www.declerc.com/concessions/arlon,Concession
+2,Declerc Ciney,Saint-Gilles 73,Ciney,5590,50.3075323,5.1191737,083 21 24 05,https://www.declerc.com/concessions/ciney,Concession
+3,Declerc Dinant,Rue Saint-Jacques 327,Dinant,5500,50.2661527,4.9308884,082 22 30 26,https://www.declerc.com/concessions/dinant,Concession
+4,Declerc Gembloux,Chaussée de Tirlemont 137,Gembloux,5030,50.5746662,4.6983978,081 62 53 10,https://www.declerc.com/concessions/gembloux,Concession
+5,Declerc Marche-en-Famenne,Rue de la Croissance 18,Marche-en-Famenne,6900,50.2370357,5.2948623,084 24 40 40,https://www.declerc.com/concessions/marche,Concession
+6,Declerc Naninne (Namur Sud),Chaussée de Marche 720,Namur,5100,50.4308005,4.9208711,081 74 97 20,https://www.declerc.com/concessions/naninne,Concession
+7,Declerc Neufchâteau,Chaussée de Bastogne 36,Neufchâteau,6840,49.8583565,5.4640866,061 27 51 00,https://www.declerc.com/concessions/neufchateau,Concession
+8,Declerc Saint-Servais (Namur Nord),Rue de Gembloux 42,Namur,5002,50.4851249,4.834669,081 73 01 01,https://www.declerc.com/concessions/saint-servais,Concession

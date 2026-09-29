@@ -1,0 +1,19 @@
+{
+  "client_id": "marjorie-thomas",
+  "client_name": "Marjorie Thomas (Immo Toma)",
+  "client_sector": "Immobilier",
+  "client_website": "https://immotoma.be/fr/a-vendre",
+  "branding": {
+    "primary_color": "#C22938",
+    "accent_color": "#F4920D",
+    "logo_url": "https://immotoma.be/assets/_image/_charleroi.jpg",
+    "icon_type": "home"
+  },
+  "terminology": {
+    "entity_name_singular": "Bien immobilier",
+    "entity_name_plural": "Biens à vendre",
+    "entity_verb": "en vente"
+  },
+  "radii": [5, 10],
+  "default_filter": "10k"
+}

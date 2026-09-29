@@ -1,0 +1,21 @@
+{
+  "client_id": "declerc",
+  "client_name": "Groupe Declerc",
+  "client_sector": "Automobile & Mobilité (Concessions)",
+  "client_website": "https://www.declerc.com/concessions/",
+  "client_color": "#4cbdc5",
+  "client_icon": "car",
+  "branding": {
+    "primary_color": "#4cbdc5",
+    "accent_color": "#F4920D",
+    "logo_url": "",
+    "icon_type": "car"
+  },
+  "terminology": {
+    "entity_name_singular": "Concession",
+    "entity_name_plural": "Concessions",
+    "entity_verb": "implantées"
+  },
+  "radii": [5, 10, 20],
+  "default_filter": "10k"
+}

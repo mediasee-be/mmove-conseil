@@ -1,0 +1,2466 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="page-title">M Move × Audit de Couverture Publicitaire</title>
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  
+  <!-- Google Fonts: Plus Jakarta Sans & Open Sans (Divi/Mmove font) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      /* Mmove Official Brand Colors */
+      --mmove-orange: #F4920D;
+      --mmove-orange-hover: #dc7e04;
+      --mmove-orange-light: #fff8f0;
+      --mmove-cyan: #2EA3F2;
+      --mmove-cyan-hover: #198ad4;
+      --mmove-cyan-light: #f0f9ff;
+      --mmove-dark: #1E2229;
+      --mmove-dark-surface: #272C35;
+      --mmove-dark-border: #383F4D;
+
+      /* Client Dynamic Brand Color (Overridden by config) */
+      --client-primary: #C22938;
+      --client-primary-hover: #9e1f2d;
+      --client-primary-light: #fef2f2;
+
+      /* UI Neutrals */
+      --text-dark: #0f172a;
+      --text-muted: #64748b;
+      --text-light: #ffffff;
+      --border-color: #e2e8f0;
+      --bg-surface: #ffffff;
+      --bg-page: #f8fafc;
+
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+      --shadow-lg: 0 12px 28px rgba(0,0,0,0.18);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Open Sans', 'Plus Jakarta Sans', -apple-system, sans-serif;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+      background: var(--bg-page);
+      color: var(--text-dark);
+    }
+
+    /* Mmove Dark Navigation Bar */
+    header {
+      background: var(--mmove-dark);
+      border-bottom: 2px solid var(--mmove-orange);
+      padding: 8px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: var(--shadow-md);
+      z-index: 1000;
+      flex-shrink: 0;
+      color: var(--text-light);
+    }
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .mmove-logo-img {
+      height: 36px;
+      width: auto;
+      object-fit: contain;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+    }
+
+    .separator-cross {
+      font-size: 16px;
+      color: var(--mmove-orange);
+      font-weight: 800;
+      opacity: 0.8;
+    }
+
+    .client-badge-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,255,255,0.08);
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+
+    .client-icon-header {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 4px;
+      background: var(--client-primary);
+      color: white;
+    }
+
+    .brand-text {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brand-title {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: -0.2px;
+      color: var(--text-light);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .brand-subtitle {
+      font-size: 11px;
+      color: #94a3b8;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+    }
+
+    .partner-pill {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #f1f5f9;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    /* KPI Cards in Header */
+    .header-kpis {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .kpi-card {
+      background: var(--mmove-dark-surface);
+      border: 1px solid var(--mmove-dark-border);
+      padding: 5px 12px;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      min-width: 95px;
+      transition: border-color 0.2s;
+    }
+
+    .kpi-card:hover {
+      border-color: var(--mmove-orange);
+    }
+
+    .kpi-card-title {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #94a3b8;
+    }
+
+    .kpi-card-value {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 15px;
+      font-weight: 800;
+      margin-top: 1px;
+    }
+
+    .kpi-card.client .kpi-card-value { color: var(--client-primary, #38bdf8); }
+
+    /* Header Actions */
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .btn-orange {
+      background: var(--mmove-orange);
+      color: white;
+      box-shadow: 0 2px 6px rgba(244, 146, 13, 0.3);
+    }
+    .btn-orange:hover {
+      background: var(--mmove-orange-hover);
+      box-shadow: 0 4px 10px rgba(244, 146, 13, 0.4);
+    }
+
+    .btn-cyan {
+      background: var(--mmove-cyan);
+      color: white;
+    }
+    .btn-cyan:hover { background: var(--mmove-cyan-hover); }
+
+    .btn-dark {
+      background: var(--mmove-dark-surface);
+      color: #e2e8f0;
+      border: 1px solid var(--mmove-dark-border);
+    }
+    .btn-dark:hover {
+      background: #333a46;
+      border-color: #64748b;
+    }
+
+    .btn-dark.active {
+      background: var(--mmove-orange) !important;
+      border-color: var(--mmove-orange) !important;
+      color: white !important;
+    }
+
+    /* Main Container */
+    .main-content {
+      display: flex;
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 420px;
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      z-index: 1000;
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: var(--shadow-md);
+      flex-shrink: 0;
+    }
+
+    .sidebar.collapsed {
+      transform: translateX(-420px);
+      margin-right: -420px;
+    }
+
+    /* Tabs Header */
+    .sidebar-tabs {
+      display: flex;
+      background: var(--mmove-dark);
+      border-bottom: 2px solid var(--mmove-dark-border);
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 12px 6px;
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      font-size: 11px;
+      font-weight: 700;
+      color: #94a3b8;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      transition: all 0.15s;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-light);
+    }
+
+    .tab-btn.active {
+      color: var(--mmove-orange);
+      border-bottom-color: var(--mmove-orange);
+      background: var(--mmove-dark-surface);
+    }
+
+    .tab-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Filter UI Elements */
+    .filter-section {
+      margin-bottom: 18px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .filter-section:last-child {
+      border-bottom: none;
+    }
+
+    .filter-label {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-muted);
+      margin-bottom: 9px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .search-box {
+      position: relative;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 10px 14px 10px 36px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      font-size: 12px;
+      outline: none;
+      transition: all 0.2s;
+      background: #f8fafc;
+    }
+
+    .search-input:focus {
+      background: white;
+      border-color: var(--mmove-orange);
+      box-shadow: 0 0 0 3px rgba(244, 146, 13, 0.15);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 11px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #94a3b8;
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #f8fafc;
+      padding: 10px 12px;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      border: 1px solid var(--border-color);
+    }
+
+    .toggle-title {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-dark);
+    }
+
+    /* Custom Switch */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 40px;
+      height: 22px;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #cbd5e1;
+      transition: .2s;
+      border-radius: 22px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .2s;
+      border-radius: 50%;
+    }
+    input:checked + .slider.client { background-color: var(--client-primary); }
+    input:checked + .slider.mmove { background-color: var(--mmove-orange); }
+    input:checked + .slider:before { transform: translateX(18px); }
+
+    /* Chips */
+    .chip-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .chip {
+      padding: 6px 11px;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #475569;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .chip:hover {
+      background: #e2e8f0;
+      color: var(--text-dark);
+    }
+
+    .chip.selected {
+      background: var(--mmove-orange);
+      color: white;
+      border-color: var(--mmove-orange);
+      box-shadow: 0 2px 5px rgba(244, 146, 13, 0.25);
+    }
+
+    .chip.selected.cyan {
+      background: var(--mmove-cyan);
+      border-color: var(--mmove-cyan);
+      box-shadow: 0 2px 5px rgba(46, 163, 242, 0.25);
+    }
+
+    .chip.selected.indigo {
+      background: #6366f1;
+      border-color: #6366f1;
+      box-shadow: 0 2px 5px rgba(99, 102, 241, 0.25);
+    }
+
+    .chip-count {
+      font-size: 10px;
+      font-weight: 800;
+      opacity: 0.9;
+      margin-left: 2px;
+    }
+
+    /* Range Slider Component */
+    .slider-range-box {
+      background: #f8fafc;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+    .slider-range-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .slider-range-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .slider-range-badge {
+      background: var(--mmove-orange);
+      color: white;
+      font-weight: 800;
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 12px;
+      letter-spacing: 0.2px;
+      box-shadow: 0 2px 6px rgba(244, 146, 13, 0.3);
+      transition: all 0.15s;
+    }
+    .slider-range-badge.all {
+      background: #0f172a;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
+    }
+    .custom-range-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 4px;
+      background: #e2e8f0;
+      outline: none;
+      cursor: pointer;
+      margin: 8px 0 4px 0;
+      accent-color: var(--mmove-orange);
+    }
+    .custom-range-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--mmove-orange);
+      border: 2px solid white;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      cursor: pointer;
+      transition: transform 0.1s, background-color 0.15s;
+    }
+    .custom-range-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+    .custom-range-slider::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--mmove-orange);
+      border: 2px solid white;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      cursor: pointer;
+      transition: transform 0.1s, background-color 0.15s;
+    }
+    .slider-ticks {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: #94a3b8;
+      font-weight: 600;
+      margin-top: 4px;
+      user-select: none;
+    }
+    .slider-tick-label {
+      cursor: pointer;
+      padding: 2px 4px;
+      border-radius: 4px;
+      transition: color 0.15s, background-color 0.15s;
+    }
+    .slider-tick-label:hover {
+      color: var(--mmove-orange);
+      background: rgba(244, 146, 13, 0.08);
+    }
+    .slider-tick-label.active {
+      color: var(--mmove-orange);
+      font-weight: 800;
+    }
+    .slider-metrics-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid #e2e8f0;
+    }
+    .slider-circle-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: #475569;
+      cursor: pointer;
+      user-select: none;
+      margin-top: 8px;
+      padding-top: 6px;
+      border-top: 1px dashed #e2e8f0;
+    }
+
+    /* Map Elements */
+    #map {
+      flex: 1;
+      height: 100%;
+      background: #e2e8f0;
+    }
+
+    /* Custom Leaflet Markers */
+    .custom-client-marker {
+      background: var(--client-primary);
+      color: white;
+      border: 2px solid white;
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.35);
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .custom-client-marker:hover {
+      transform: scale(1.2);
+      box-shadow: 0 5px 12px rgba(0,0,0,0.45);
+      z-index: 9999 !important;
+    }
+
+    .custom-trailer-marker {
+      background: var(--mmove-dark);
+      border: 2px solid var(--mmove-orange);
+      color: var(--mmove-orange);
+      border-radius: 7px;
+      padding: 3px 7px;
+      font-weight: 800;
+      font-size: 11px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: transform 0.15s;
+    }
+    .custom-trailer-marker:hover {
+      background: var(--mmove-orange);
+      color: white;
+      transform: scale(1.15);
+      z-index: 9999 !important;
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 7px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+
+    .badge-5k {
+      background: #fff8f0;
+      color: #c2410c;
+      border: 1px solid #fed7aa;
+    }
+
+    .badge-10k {
+      background: #f0f9ff;
+      color: #0369a1;
+      border: 1px solid #bae6fd;
+    }
+
+    /* Popups */
+    .popup-card {
+      width: 270px;
+      font-family: 'Open Sans', sans-serif;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .popup-body {
+      padding: 12px;
+    }
+    .popup-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--text-dark);
+      margin-bottom: 3px;
+    }
+    .popup-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+    .popup-proximity-box {
+      background: var(--mmove-orange-light);
+      border: 1px solid #fed7aa;
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-bottom: 10px;
+      font-size: 11px;
+    }
+    .popup-proximity-head {
+      font-weight: 800;
+      color: #c2410c;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 2px;
+    }
+    .popup-cta {
+      display: block;
+      text-align: center;
+      background: var(--client-primary);
+      color: white;
+      text-decoration: none;
+      padding: 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    /* Cross Analysis Table */
+    .analysis-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+    .analysis-table th {
+      text-align: left;
+      padding: 8px 6px;
+      background: var(--mmove-dark);
+      color: #94a3b8;
+      font-weight: 700;
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+    .analysis-table td {
+      padding: 8px 6px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .analysis-table tr:hover {
+      background: #fff7ed;
+      cursor: pointer;
+    }
+
+    /* Floating Legend */
+    .map-legend {
+      position: absolute;
+      bottom: 25px;
+      right: 25px;
+      background: var(--mmove-dark);
+      color: white;
+      padding: 12px 16px;
+      border-radius: 8px;
+      box-shadow: var(--shadow-lg);
+      border: 1px solid var(--mmove-dark-border);
+      z-index: 999;
+      font-size: 11px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .legend-title {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: #94a3b8;
+      border-bottom: 1px solid var(--mmove-dark-border);
+      padding-bottom: 4px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Modal Prospect Simulation */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(4px);
+      z-index: 2000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-card {
+      background: white;
+      width: 650px;
+      max-width: 100%;
+      max-height: 90vh;
+      border-radius: 12px;
+      box-shadow: var(--shadow-lg);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .modal-header {
+      background: var(--mmove-dark);
+      color: white;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 2px solid var(--mmove-orange);
+    }
+    .modal-header h3 {
+      font-size: 15px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      color: #94a3b8;
+      font-size: 20px;
+      cursor: pointer;
+    }
+    .modal-body {
+      padding: 20px;
+      overflow-y: auto;
+      font-size: 13px;
+    }
+    .form-group {
+      margin-bottom: 14px;
+    }
+    .form-group label {
+      display: block;
+      font-weight: 700;
+      font-size: 11px;
+      text-transform: uppercase;
+      color: #475569;
+      margin-bottom: 5px;
+    }
+    .form-control {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 12px;
+    }
+    .modal-footer {
+      background: #f8fafc;
+      padding: 12px 20px;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    .btn-discreet {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      color: #94a3b8;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 5px 9px;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-discreet:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #f1f5f9;
+      border-color: rgba(255, 255, 255, 0.35);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="brand-section">
+      <div class="logo-container">
+        <img src="logo-mmove.png" alt="M Move" class="mmove-logo-img" onerror="this.style.display='none'">
+        <span class="separator-cross">×</span>
+        <div class="client-badge-header">
+          <div class="client-icon-header" id="client-header-icon">
+            <!-- Icon injected via JS -->
+          </div>
+          <div class="brand-text">
+            <span class="brand-title" id="header-client-name">Prospect</span>
+            <span class="brand-subtitle" id="header-client-sector">Audit de Couverture Commerciale</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live KPIs -->
+    <div class="header-kpis">
+      <div class="kpi-card client">
+        <span class="kpi-card-title" id="kpi-title-total">Points</span>
+        <span class="kpi-card-value" id="kpi-val-total">0</span>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="header-actions">
+      <button class="btn btn-dark" id="btn-toggle-sidebar" title="Masquer / Afficher le volet">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+        Panneau
+      </button>
+      <button class="btn btn-dark" id="btn-fit-bounds">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+        Recadrer
+      </button>
+      <button class="btn btn-orange" id="btn-export-excel" title="Télécharger le classeur Excel (.xlsx) complet avec synthèse et croisements">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        Export Excel (.xlsx)
+      </button>
+      <button class="btn btn-dark" id="btn-copy-sheets" title="Copier les données tabulaires pour les coller directement dans Google Sheets (Ctrl+V)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+        Google Sheets
+      </button>
+      <button class="btn-discreet" id="btn-open-sim" title="Simuler ou charger un autre prospect">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Nouveau prospect
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Layout -->
+  <div class="main-content">
+    
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+      
+      <!-- Tabs -->
+      <div class="sidebar-tabs">
+        <button class="tab-btn active" data-tab="filters">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+          Filtres
+        </button>
+        <button class="tab-btn" data-tab="locations" id="tab-btn-locations">
+          <span id="tab-title-locations">Points</span>
+        </button>
+        <button class="tab-btn" data-tab="trailers">
+          <span id="tab-title-trailers">Panneaux (132)</span>
+        </button>
+        <button class="tab-btn" data-tab="analysis">
+          <span>🏆 Top Mmove</span>
+        </button>
+      </div>
+
+      <!-- Tab 1: Filters -->
+      <div class="tab-content active" id="tab-filters">
+        
+        <!-- Search -->
+        <div class="filter-section">
+          <label class="filter-label">Recherche directe</label>
+          <div class="search-box">
+            <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="global-search" class="search-input" placeholder="Commune, rue, nom, n° panneau...">
+          </div>
+        </div>
+
+        <!-- Layers -->
+        <div class="filter-section">
+          <label class="filter-label">Couches d'affichage</label>
+          <div class="toggle-row">
+            <div class="toggle-title">
+              <span id="layer-client-indicator" style="width: 12px; height: 12px; background: var(--client-primary); border-radius: 50%; display: inline-block;"></span>
+              <span id="layer-client-title">Points Prospect</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="layer-client" checked>
+              <span class="slider client"></span>
+            </label>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-title">
+              <span style="width: 12px; height: 12px; background: var(--mmove-orange); border-radius: 3px; display: inline-block;"></span>
+              <span id="layer-trailers-title">Panneaux Mmove (132)</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="layer-trailers" checked>
+              <span class="slider mmove"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Curseur Interactif Rayon & Couverture (0 - 20 km) -->
+        <div class="filter-section">
+          <div class="slider-range-box">
+            <div class="slider-range-header">
+              <span class="slider-range-title">Rayon & Couverture</span>
+              <span class="slider-range-badge all" id="slider-dist-badge">0 km (Tous)</span>
+            </div>
+            
+            <input type="range" id="coverage-radius-slider" class="custom-range-slider" min="0" max="20" step="1" value="0">
+            
+            <div class="slider-ticks">
+              <span class="slider-tick-label active" data-val="0" onclick="setSliderValue(0)">0 (Tous)</span>
+              <span class="slider-tick-label" data-val="5" onclick="setSliderValue(5)">5 km</span>
+              <span class="slider-tick-label" data-val="10" onclick="setSliderValue(10)">10 km</span>
+              <span class="slider-tick-label" data-val="15" onclick="setSliderValue(15)">15 km</span>
+              <span class="slider-tick-label" data-val="20" onclick="setSliderValue(20)">20 km</span>
+            </div>
+
+            <div class="slider-metrics-row">
+              <span style="color: #64748b;">Panneaux qualifiés :</span>
+              <strong id="slider-trailers-count" style="color: var(--mmove-orange); font-size: 12px;">132 / 132</strong>
+            </div>
+            <div class="slider-metrics-row" style="margin-top: 4px; padding-top: 0; border-top: none;">
+              <span style="color: #64748b;">Trafic journalier :</span>
+              <strong id="slider-traffic-count" style="color: #0f172a; font-size: 12px;">1 641 300 véh./j</strong>
+            </div>
+            <div class="slider-metrics-row" style="margin-top: 4px; padding-top: 0; border-top: none;">
+              <span style="color: #64748b;">Vues mensuelles (OTS) :</span>
+              <strong id="slider-ots-count" style="color: #0284c7; font-size: 12px;">73 858 500 vues / mois</strong>
+            </div>
+
+            <label class="slider-circle-toggle" for="toggle-show-circles">
+              <input type="checkbox" id="toggle-show-circles" checked style="accent-color: var(--mmove-orange); cursor: pointer;">
+              <span>Afficher les cercles sur la carte</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Categories / Types -->
+        <div class="filter-section" id="section-types" style="display:none;">
+          <label class="filter-label">Catégorie</label>
+          <div class="chip-group" id="type-chips">
+            <button class="chip selected" data-type="all">Toutes</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Tab 2: Client Locations List -->
+      <div class="tab-content" id="tab-locations">
+        <div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 11px; font-weight: 800; color: var(--text-muted);" id="locs-list-count">0 points</span>
+          <select id="sort-locations" style="padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-color); font-size: 11px;">
+            <option value="nearest">Distance au panneau croissant</option>
+            <option value="name-asc">Nom (A-Z)</option>
+            <option value="city-asc">Ville (A-Z)</option>
+          </select>
+        </div>
+        <div id="locations-list"></div>
+      </div>
+
+      <!-- Tab 3: Mmove Trailers List -->
+      <div class="tab-content" id="tab-trailers">
+        <div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 11px; font-weight: 800; color: var(--text-muted);" id="trailers-list-count">132 panneaux</span>
+          <select id="sort-trailers" style="padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-color); font-size: 11px;">
+            <option value="coverage-10k" selected>Plus forte couverture (≤ 10 km)</option>
+            <option value="coverage-5k">Plus forte couverture (≤ 5 km)</option>
+            <option value="coverage-20k">Plus forte couverture (≤ 20 km)</option>
+            <option value="traffic-desc">Fréquentation routière (véh./jour)</option>
+            <option value="id-asc">Numéro de remorque</option>
+          </select>
+        </div>
+        <div id="trailers-list"></div>
+      </div>
+
+      <!-- Tab 4: Top Strategic Trailers -->
+      <div class="tab-content" id="tab-analysis">
+        <div style="background: var(--mmove-orange-light); border: 1px solid #fed7aa; padding: 10px; border-radius: 8px; margin-bottom: 14px; font-size: 11px;">
+          <strong style="color: #c2410c;">🎯 Argumentaire d'impact Mmove</strong>
+          <p style="margin-top: 4px; color: #7c2d12;">Ces emplacements offrent la plus forte concentration de points d'intérêt pour le prospect et captent les plus forts volumes de passage quotidien.</p>
+        </div>
+        <table class="analysis-table">
+          <thead>
+            <tr>
+              <th>Panneau</th>
+              <th>Axe Routier</th>
+              <th>Trafic/j</th>
+              <th>≤ 5 km</th>
+              <th>≤ 10 km</th>
+              <th>≤ 20 km</th>
+            </tr>
+          </thead>
+          <tbody id="top-trailers-tbody"></tbody>
+        </table>
+      </div>
+
+    </div>
+
+    <!-- Map Canvas -->
+    <div id="map"></div>
+
+    <!-- Floating Legend -->
+    <div class="map-legend">
+      <div class="legend-title">Légende</div>
+      <div class="legend-item">
+        <span style="width: 10px; height: 10px; border-radius: 50%; background: var(--client-primary); display: inline-block;"></span>
+        <span id="legend-client-label">Points Prospect</span>
+      </div>
+      <div class="legend-item">
+        <span style="width: 10px; height: 10px; border-radius: 2px; background: var(--mmove-orange); display: inline-block;"></span>
+        <span>Panneaux Mmove 8m²</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Modal Nouveau Prospect / Simulateur Commercial -->
+  <div class="modal-overlay" id="sim-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Configurer un Nouveau Prospect / Simulation Démo
+        </h3>
+        <button class="modal-close" id="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+          <div style="flex: 2;" class="form-group">
+            <label>Nom du Client / Prospect</label>
+            <input type="text" id="sim-client-name" class="form-control" placeholder="ex: Groupe Schyns, Brico, Basic-Fit...">
+          </div>
+          <div style="flex: 1;" class="form-group">
+            <label>Secteur</label>
+            <input type="text" id="sim-client-sector" class="form-control" placeholder="ex: Automobile, Retail...">
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+          <div style="flex: 1;" class="form-group">
+            <label>Couleur de la marque</label>
+            <input type="color" id="sim-client-color" value="#1E3A8A" style="width: 100%; height: 36px; padding: 2px; border-radius: 6px; cursor: pointer;">
+          </div>
+          <div style="flex: 1;" class="form-group">
+            <label>Type d'icône</label>
+            <select id="sim-client-icon" class="form-control">
+              <option value="store">Magasin / Commerce</option>
+              <option value="car">Automobile / Concession</option>
+              <option value="cart">Supermarché / Retail</option>
+              <option value="home">Immobilier / Maison</option>
+              <option value="building">Entreprise / Bâtiment</option>
+              <option value="fitness">Sport / Fitness</option>
+              <option value="pin">Marqueur universel</option>
+            </select>
+          </div>
+          <div style="flex: 1;" class="form-group">
+            <label>Nom des entités (Pluriel)</label>
+            <input type="text" id="sim-entity-plural" class="form-control" placeholder="ex: Magasins, Concessions...">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Données du prospect (Glisser-Déposer un CSV ou coller le contenu ci-dessous)</label>
+          <div id="drop-zone" style="border: 2px dashed #cbd5e1; border-radius: 8px; padding: 12px; text-align: center; background: #f8fafc; margin-bottom: 8px; cursor: pointer;">
+            <span style="font-size: 12px; color: #64748b;">📂 Glissez-déposez votre fichier <strong>locations.csv</strong> ici ou cliquez pour choisir</span>
+            <input type="file" id="file-input" accept=".csv,.json" style="display: none;">
+          </div>
+          <textarea id="sim-csv-content" class="form-control" rows="6" style="font-family: monospace; font-size: 11px;" placeholder="id,nom,adresse,ville,latitude,longitude,type&#10;1,Point Namur,Rue de Fer 12,Namur,50.4674,4.8675,Showroom&#10;2,Point Charleroi,Grand Rue 143,Charleroi,50.4182,4.4539,Atelier"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-dark" id="btn-cancel-sim">Annuler</button>
+        <button class="btn btn-orange" id="btn-apply-sim" style="font-weight: 800;">⚡ Lancer la Simulation</button>
+      </div>
+  </div>
+
+  <!-- Modal Détail Remorque & Photo (Photo + Fréquentation journalière) -->
+  <div class="modal-overlay" id="trailer-modal" style="display:none;">
+    <div class="modal-card" style="max-width: 620px;">
+      <div class="modal-header">
+        <h3 id="trailer-modal-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+          Remorque Mmove
+        </h3>
+        <button class="modal-close" id="trailer-modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 18px;">
+        <!-- Photo Container -->
+        <div id="trailer-modal-photo-box" style="position: relative; width: 100%; height: 260px; background: #0f172a; border-radius: 8px; overflow: hidden; margin-bottom: 14px; display: flex; align-items: center; justify-content: center;">
+          <img id="trailer-modal-img" src="" alt="Photo remorque" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='https://remorquepublicitaire.be/wp-content/uploads/2021/07/108in.jpg';" />
+          <div id="trailer-modal-photo-toggle" style="position: absolute; bottom: 8px; right: 8px; display: none; gap: 6px; background: rgba(15,23,42,0.85); padding: 4px 8px; border-radius: 6px; backdrop-filter: blur(4px);">
+            <button id="btn-photo-in" class="btn btn-dark" style="padding: 3px 8px; font-size: 11px;">Vue Face IN</button>
+            <button id="btn-photo-out" class="btn btn-dark" style="padding: 3px 8px; font-size: 11px;">Vue Face OUT</button>
+          </div>
+        </div>
+
+        <!-- High-impact Traffic & Info Cards -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 14px;">
+          <div style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 9px 10px;">
+            <div style="font-size: 9px; font-weight: 700; color: #c2410c; text-transform: uppercase;">🚗 Véhicules / jour</div>
+            <div id="trailer-modal-traffic" style="font-size: 16px; font-weight: 900; color: #9a3412; margin-top: 2px;">--</div>
+            <div id="trailer-modal-traffic-sub" style="font-size: 9px; color: #7c2d12;">Moyenne journalière</div>
+          </div>
+          <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 9px 10px;">
+            <div style="font-size: 9px; font-weight: 700; color: #1d4ed8; text-transform: uppercase;">👁️ Vues mensuelles</div>
+            <div id="trailer-modal-ots" style="font-size: 16px; font-weight: 900; color: #1e40af; margin-top: 2px;">--</div>
+            <div style="font-size: 9px; color: #3b82f6;">30 j × 1,5 contact/véh.</div>
+          </div>
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 9px 10px;">
+            <div style="font-size: 9px; font-weight: 700; color: #475569; text-transform: uppercase;">📍 Axe & Commune</div>
+            <div id="trailer-modal-axe" style="font-size: 12px; font-weight: 800; color: #0f172a; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">--</div>
+            <div id="trailer-modal-commune" style="font-size: 10px; color: #64748b;">--</div>
+          </div>
+        </div>
+
+        <!-- Directions & Impact -->
+        <div style="background: #f1f5f9; border-radius: 8px; padding: 10px 12px; margin-bottom: 14px; font-size: 12px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+            <span style="color: #64748b;">Sens de circulation IN :</span>
+            <strong id="trailer-modal-dirin" style="color: #0f172a;">--</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+            <span style="color: #64748b;">Sens de circulation OUT :</span>
+            <strong id="trailer-modal-dirout" style="color: #0f172a;">--</strong>
+          </div>
+          <div id="trailer-modal-impact-row" style="display: flex; justify-content: space-between;">
+            <span style="color: #64748b;">Contexte & Visibilité :</span>
+            <strong id="trailer-modal-impact" style="color: #0f172a;">--</strong>
+          </div>
+        </div>
+
+        <!-- Couverture prospect -->
+        <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; margin-bottom: 6px;">
+          <div style="font-size: 11px; font-weight: 700; color: #0f172a; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+            <span>🎯 Points du prospect couverts par ce panneau :</span>
+            <span id="trailer-modal-cov-summary" style="color: #c2410c; font-weight: 800; font-size: 11px;">--</span>
+          </div>
+          <div id="trailer-modal-locations-list" style="max-height: 120px; overflow-y: auto; font-size: 12px;">
+            <!-- list of covered locations -->
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+        <button class="btn btn-dark" id="btn-close-trailer-modal">Fermer</button>
+        <a id="trailer-modal-link" href="#" target="_blank" class="btn btn-orange" style="font-weight: 700;">Voir la fiche technique complète ↗</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Leaflet & Cluster JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <!-- SheetJS pour export natif Excel (.xlsx) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <!-- Data Placeholder (populated by generator or fetch) -->
+  <script id="embedded-data-script">
+    // window.APP_DATA will be injected here during standalone export
+  </script>
+
+  <script>
+    /* Universal Icons Dictionary */
+    const ICONS_SVG = {
+      home: '<svg width="15" height="15" viewBox="0 0 24 24" fill="white"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
+      car: '<svg width="15" height="15" viewBox="0 0 24 24" fill="white"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9C2.1 11.1 2 11.5 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>',
+      store: '<svg width="15" height="15" viewBox="0 0 24 24" fill="white"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/><circle cx="12" cy="12" r="2"/></svg>',
+      cart: '<svg width="15" height="15" viewBox="0 0 24 24" fill="white"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>',
+      fitness: '<svg width="15" height="15" viewBox="0 0 24 24" fill="white"><path d="m6.5 6.5 11 11"/><path d="m21 21-1-1a3 3 0 0 0-4.24 0l-.88.88a3 3 0 0 1-4.24 0l-4.52-4.52a3 3 0 0 1 0-4.24l.88-.88a3 3 0 0 0 0-4.24L7 7"/><path d="m3 3 1 1a3 3 0 0 0 4.24 0l.88-.88a3 3 0 0 1 4.24 0l4.52 4.52a3 3 0 0 1 0 4.24l-.88.88a3 3 0 0 0 0 4.24L17 17"/></svg>',
+      water: '<svg width="15" height="15" viewBox="0 0 24 24" fill="white"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>',
+      building: '<svg width="15" height="15" viewBox="0 0 24 24" fill="white"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M8 10h.01"/><path d="M16 10h.01"/><path d="M8 14h.01"/><path d="M16 14h.01"/></svg>',
+      pin: '<svg width="15" height="15" viewBox="0 0 24 24" fill="white"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3" fill="#1e293b"/></svg>'
+    };
+
+    /* App State */
+    let map = null;
+    let clientClusterGroup = null;
+    let trailersLayerGroup = null;
+    let linesLayerGroup = null;
+    let radiusLayerGroup = null;
+
+    let appConfig = {};
+    let allLocations = [];
+    let allTrailers = [];
+    let filteredLocations = [];
+    let filteredTrailers = [];
+
+    let currentFilters = {
+      search: '',
+      showClient: true,
+      showTrailers: true,
+      showLines: false,
+      maxDistanceKm: 0, // 0 = tous les panneaux, 1-20 = distance max (km)
+      showCircles: true,
+      selectedType: 'all'
+    };
+
+    /* Haversine distance in JS */
+    function haversineDist(lat1, lon1, lat2, lon2) {
+      if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return null;
+      const R = 6371.0;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+      return +(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))).toFixed(2);
+    }
+
+    function initMap() {
+      // 1. Définition des fonds de carte (Google Maps & Carto)
+      const googleStreets = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+        attribution: '&copy; Google Maps | Réseau M Move',
+        maxZoom: 20
+      });
+
+      const googleHybrid = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+        attribution: '&copy; Google Maps Satellite | Réseau M Move',
+        maxZoom: 20
+      });
+
+      const googleTerrain = L.tileLayer('https://mt1.google.com/vt/lyrs=p&x={x}&y={y}&z={z}', {
+        attribution: '&copy; Google Maps Relief | Réseau M Move',
+        maxZoom: 20
+      });
+
+      const cartoVoyager = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://openstreetmap.org">OSM</a> &copy; <a href="https://carto.com/">CARTO</a> | Réseau M Move',
+        maxZoom: 19
+      });
+
+      // 2. Initialisation avec Google Maps Routier par défaut
+      map = L.map('map', {
+        zoomControl: true,
+        attributionControl: true,
+        layers: [googleStreets]
+      }).setView([50.45, 4.85], 9);
+
+      // 3. Sélecteur de couches de fond de carte (Google Maps Routier / Satellite / CARTO)
+      const baseMaps = {
+        "🗺️ Google Maps (Routier)": googleStreets,
+        "🛰️ Google Maps (Satellite)": googleHybrid,
+        "🏔️ Google Maps (Relief)": googleTerrain,
+        "🎨 CARTO Voyager (Clair)": cartoVoyager
+      };
+
+      L.control.layers(baseMaps, null, { position: 'topright' }).addTo(map);
+
+      clientClusterGroup = L.markerClusterGroup({
+        maxClusterRadius: 40,
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: false,
+        iconCreateFunction: function(cluster) {
+          const count = cluster.getChildCount();
+          return L.divIcon({
+            html: `<div style="background:var(--client-primary);color:white;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;border:2px solid white;box-shadow:0 3px 8px rgba(0,0,0,0.3);">${count}</div>`,
+            className: 'cluster-client-icon',
+            iconSize: L.point(34, 34)
+          });
+        }
+      });
+
+      trailersLayerGroup = L.layerGroup();
+      linesLayerGroup = L.layerGroup();
+      radiusLayerGroup = L.layerGroup();
+
+      map.addLayer(clientClusterGroup);
+      map.addLayer(trailersLayerGroup);
+      map.addLayer(linesLayerGroup);
+      map.addLayer(radiusLayerGroup);
+    }
+
+    function applyConfig(cfg) {
+      appConfig = cfg || {};
+      const branding = appConfig.branding || {};
+      const primaryColor = branding.primary_color || appConfig.client_color || '#C22938';
+      document.documentElement.style.setProperty('--client-primary', primaryColor);
+
+      document.getElementById('header-client-name').textContent = appConfig.client_name || 'Prospect';
+      document.getElementById('header-client-sector').textContent = appConfig.client_sector || 'Audit de Couverture';
+      document.getElementById('page-title').textContent = `M Move × ${appConfig.client_name || 'Prospect'} | Audit Cartographique`;
+      
+      const iconKey = branding.icon_type || appConfig.client_icon || 'store';
+      const iconSvg = ICONS_SVG[iconKey] || ICONS_SVG.store;
+      document.getElementById('client-header-icon').innerHTML = iconSvg;
+
+      const entityPlural = (appConfig.terminology && appConfig.terminology.entity_name_plural) || 'Points de vente';
+      document.getElementById('layer-client-title').textContent = `${entityPlural} (${appConfig.client_name || 'Prospect'})`;
+      document.getElementById('legend-client-label').textContent = `${entityPlural} ${appConfig.client_name || ''}`;
+      document.getElementById('kpi-title-total').textContent = entityPlural;
+      document.getElementById('tab-title-locations').textContent = `${entityPlural} (${allLocations.length})`;
+    }
+
+    function calculateProximities() {
+      allLocations.forEach(loc => {
+        if (!loc.lat || !loc.lng) {
+          loc.nearest_trailer = null;
+          return;
+        }
+        let nearest = null;
+        let minDist = Infinity;
+        let t5k = [];
+        let t10k = [];
+        let t20k = [];
+
+        allTrailers.forEach(t => {
+          const d = haversineDist(loc.lat, loc.lng, t.lat, t.lng);
+          if (d != null) {
+            const item = { 
+              trailer_id: t.id, 
+              ville: t.ville, 
+              axe: t.axe, 
+              distance_km: d,
+              frequentation_jour: t.frequentation_jour,
+              frequentation_fmt: t.frequentation_fmt
+            };
+            if (d < minDist) { minDist = d; nearest = item; }
+            if (d <= 5.0) t5k.push(item);
+            if (d <= 10.0) t10k.push(item);
+            if (d <= 20.0) t20k.push(item);
+          }
+        });
+        loc.nearest_trailer = nearest;
+        loc.trailers_within_5km = t5k;
+        loc.trailers_within_10km = t10k;
+        loc.trailers_within_20km = t20k;
+      });
+
+      allTrailers.forEach(t => {
+        let locs5k = [];
+        let locs10k = [];
+        let locs20k = [];
+        let minTrailerDist = Infinity;
+        allLocations.forEach(loc => {
+          if (!loc.lat || !loc.lng) return;
+          const d = haversineDist(t.lat, t.lng, loc.lat, loc.lng);
+          if (d != null) {
+            if (d < minTrailerDist) minTrailerDist = d;
+            const item = { id: loc.id, title: loc.title, city: loc.city, distance_km: d };
+            if (d <= 5.0) locs5k.push(item);
+            if (d <= 10.0) locs10k.push(item);
+            if (d <= 20.0) locs20k.push(item);
+          }
+        });
+        t.min_distance_to_client = (minTrailerDist !== Infinity) ? minTrailerDist : 999;
+        t.locs_within_5km = locs5k.length;
+        t.locs_within_10km = locs10k.length;
+        t.locs_within_20km = locs20k.length;
+        t.nearby_locations = locs20k.sort((a,b) => a.distance_km - b.distance_km);
+      });
+    }
+
+    function updateKPIs() {
+      const valid = allLocations.filter(l => l.lat && l.lng);
+      const total = valid.length;
+      const elTotal = document.getElementById('kpi-val-total');
+      if (elTotal) elTotal.textContent = total;
+
+      const layerTrailersTitle = document.getElementById('layer-trailers-title');
+      if (layerTrailersTitle) layerTrailersTitle.textContent = `Panneaux Mmove (${allTrailers.length})`;
+
+      updateSliderMetrics();
+    }
+
+    function updateSliderMetrics() {
+      const d = currentFilters.maxDistanceKm;
+      const badgeDist = document.getElementById('slider-dist-badge');
+      const countTrailers = document.getElementById('slider-trailers-count');
+      const countTraffic = document.getElementById('slider-traffic-count');
+
+      if (badgeDist) {
+        if (d === 0) {
+          badgeDist.textContent = '0 km (Tous)';
+          badgeDist.className = 'slider-range-badge all';
+        } else {
+          badgeDist.textContent = `≤ ${d} km`;
+          badgeDist.className = 'slider-range-badge';
+        }
+      }
+
+      if (countTrailers) {
+        countTrailers.textContent = `${filteredTrailers.length} / ${allTrailers.length}`;
+      }
+
+      const totalTraffic = filteredTrailers.reduce((sum, tr) => sum + (tr.frequentation_jour || 0), 0);
+      const totalOts = Math.round(totalTraffic * 1.5 * 30);
+
+      if (countTraffic) {
+        countTraffic.textContent = totalTraffic > 0 ? totalTraffic.toLocaleString('fr-FR') + ' véh./j' : '—';
+      }
+
+      const countOts = document.getElementById('slider-ots-count');
+      if (countOts) {
+        countOts.textContent = totalOts > 0 ? totalOts.toLocaleString('fr-FR') + ' vues / mois' : '—';
+      }
+
+      // Mettre à jour l'état actif des graduations cliquables
+      document.querySelectorAll('.slider-tick-label').forEach(lbl => {
+        const val = parseInt(lbl.getAttribute('data-val'), 10);
+        lbl.classList.toggle('active', val === d);
+      });
+    }
+
+    window.setSliderValue = function(val) {
+      const slider = document.getElementById('coverage-radius-slider');
+      if (slider) {
+        slider.value = val;
+        currentFilters.maxDistanceKm = parseInt(val, 10);
+        applyFilters();
+      }
+    };
+
+    function applyFilters() {
+      const q = currentFilters.search.toLowerCase().trim();
+
+      // 1. Filtrage des points client (par recherche et type, mais PAS par filtre de couverture des panneaux)
+      filteredLocations = allLocations.filter(loc => {
+        if (!loc.lat || !loc.lng) return false;
+        if (q) {
+          const matchTitle = (loc.title || '').toLowerCase().includes(q);
+          const matchCity = (loc.city || '').toLowerCase().includes(q);
+          const matchStreet = (loc.street || '').toLowerCase().includes(q);
+          const matchType = (loc.type || '').toLowerCase().includes(q);
+          if (!matchTitle && !matchCity && !matchStreet && !matchType) return false;
+        }
+
+        if (currentFilters.selectedType !== 'all' && (loc.type || '') !== currentFilters.selectedType) return false;
+
+        return true;
+      });
+
+      // 2. Filtrage des PANNEAUX (Le filtre de couverture travaille sur les panneaux !)
+      filteredTrailers = allTrailers.filter(t => {
+        if (!t.lat || !t.lng) return false;
+        if (q) {
+          const matchVille = (t.ville || '').toLowerCase().includes(q);
+          const matchAxe = (t.axe || '').toLowerCase().includes(q);
+          const matchId = String(t.id).includes(q);
+          if (!matchVille && !matchAxe && !matchId) return false;
+        }
+
+        // Filtre de distance par curseur (0 = Tous, sinon distance max)
+        if (currentFilters.maxDistanceKm > 0) {
+          if (t.min_distance_to_client == null || t.min_distance_to_client > currentFilters.maxDistanceKm) {
+            return false;
+          }
+        }
+        return true;
+      });
+
+      // Mettre à jour le titre du tab Panneaux
+      const tabTrailersTitle = document.getElementById('tab-title-trailers');
+      if (tabTrailersTitle) {
+        if (filteredTrailers.length < allTrailers.length) {
+          tabTrailersTitle.textContent = `Panneaux (${filteredTrailers.length}/${allTrailers.length})`;
+        } else {
+          tabTrailersTitle.textContent = `Panneaux (${allTrailers.length})`;
+        }
+      }
+
+      renderMarkers();
+      renderLists();
+      buildTopTrailersTable();
+      updateSliderMetrics();
+    }
+
+    function renderMarkers() {
+      clientClusterGroup.clearLayers();
+      trailersLayerGroup.clearLayers();
+      linesLayerGroup.clearLayers();
+      radiusLayerGroup.clearLayers();
+
+      const iconKey = (appConfig.branding && appConfig.branding.icon_type) || appConfig.client_icon || 'store';
+      const iconSvg = ICONS_SVG[iconKey] || ICONS_SVG.store;
+
+      // 1. Client locations
+      if (currentFilters.showClient) {
+        filteredLocations.forEach(loc => {
+          const icon = L.divIcon({
+            className: 'custom-client-marker',
+            html: iconSvg,
+            iconSize: L.point(28, 28),
+            iconAnchor: L.point(14, 14)
+          });
+
+          const marker = L.marker([loc.lat, loc.lng], { icon: icon });
+          const nearestDist = loc.nearest_trailer ? loc.nearest_trailer.distance_km : null;
+          let nearestBadge = '';
+          if (nearestDist != null) {
+            if (nearestDist <= 5.0) {
+              nearestBadge = '<span class="badge badge-5k">Impact direct ≤ 5 km</span>';
+            } else if (nearestDist <= 10.0) {
+              nearestBadge = '<span class="badge badge-10k">Zone ≤ 10 km</span>';
+            } else if (nearestDist <= 20.0) {
+              nearestBadge = '<span class="badge" style="background:#e0e7ff;color:#4338ca;border:1px solid #c7d2fe;">Zone ≤ 20 km</span>';
+            } else {
+              nearestBadge = `<span class="badge" style="background:#f1f5f9;color:#64748b;">${nearestDist} km</span>`;
+            }
+          }
+
+          const ntTraffic = loc.nearest_trailer && loc.nearest_trailer.frequentation_jour ? `
+            <div style="margin-top: 4px; font-size: 10px; color: #c2410c; display: flex; justify-content: space-between; align-items: center;">
+              <span>🚗 ${loc.nearest_trailer.frequentation_fmt || (loc.nearest_trailer.frequentation_jour.toLocaleString('fr-FR') + ' véh./j')}</span>
+              <strong style="color: #0369a1;">👁️ ${Math.round(loc.nearest_trailer.frequentation_jour * 1.5 * 30).toLocaleString('fr-FR')} vues/m</strong>
+            </div>
+          ` : '';
+
+          const nearestBox = loc.nearest_trailer ? `
+            <div class="popup-proximity-box">
+              <div class="popup-proximity-head">
+                <span>Panneau Mmove #${loc.nearest_trailer.trailer_id}</span>
+                <span>${loc.nearest_trailer.distance_km} km</span>
+              </div>
+              <div style="color: #64748b; font-size: 11px;">
+                ${loc.nearest_trailer.ville} - ${loc.nearest_trailer.axe}
+              </div>
+              ${ntTraffic}
+            </div>
+          ` : '';
+
+          const popupHtml = `
+            <div class="popup-card">
+              <div class="popup-body">
+                <div style="margin-bottom: 6px;">${nearestBadge}</div>
+                <div class="popup-title">${loc.title}</div>
+                <div class="popup-meta">📍 ${loc.street ? loc.street + ', ' : ''}${loc.city}</div>
+                ${nearestBox}
+                ${loc.url ? `<a href="${loc.url}" target="_blank" class="popup-cta">Voir le site ↗</a>` : ''}
+              </div>
+            </div>
+          `;
+          marker.bindPopup(popupHtml);
+          clientClusterGroup.addLayer(marker);
+        });
+      }
+
+      // 2. Trailers (Enrichis avec Photo et Fréquentation journalière)
+      if (currentFilters.showTrailers) {
+        filteredTrailers.forEach(t => {
+          const icon = L.divIcon({
+            className: 'custom-trailer-marker',
+            html: `<span>#${t.id}</span>`,
+            iconSize: null
+          });
+
+          const marker = L.marker([t.lat, t.lng], { icon: icon });
+          const hasPhoto = !!(t.photo_url || t.photo_in || t.photo_out);
+          const photoSrc = t.photo_url || t.photo_in || 'https://remorquepublicitaire.be/wp-content/uploads/2021/07/108in.jpg';
+          const trafficDisplay = t.frequentation_fmt || (t.frequentation_jour ? t.frequentation_jour.toLocaleString('fr-FR') + ' véh./jour' : '12 400 véh./jour');
+          const otsDisplay = t.frequentation_jour ? Math.round(t.frequentation_jour * 1.5 * 30).toLocaleString('fr-FR') + ' vues / mois' : '';
+
+          const popupHtml = `
+            <div class="popup-card" style="width: 290px;">
+              ${hasPhoto ? `
+                <div style="position:relative; width:100%; height:135px; background:#0f172a; overflow:hidden; cursor:pointer;" onclick="window.openTrailerModal('${t.id}')" title="Cliquer pour agrandir la photo et voir la fiche technique">
+                  <img src="${photoSrc}" alt="Panneau Mmove #${t.id}" style="width:100%; height:135px; object-fit:cover; display:block;" onerror="this.parentElement.style.display='none';" />
+                  <span style="position:absolute; bottom:6px; right:6px; background:rgba(15,23,42,0.85); color:#fff; font-size:10px; font-weight:700; padding:2px 7px; border-radius:4px; backdrop-filter:blur(4px);">🔍 Photo & Fiche</span>
+                </div>
+              ` : ''}
+              <div class="popup-body">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                  <span class="badge" style="background:var(--mmove-dark); color:var(--mmove-orange); border:1px solid var(--mmove-orange);">Mmove #${t.id}</span>
+                  <span class="badge" style="background:#f1f5f9; color:#475569;">${t.province || 'Wallonie'}</span>
+                </div>
+                <div class="popup-title">${t.ville}</div>
+                <div class="popup-meta">${t.axe || ''} ${t.localisation ? '• ' + t.localisation : ''}</div>
+                
+                <!-- Fréquentation Journalière & OTS -->
+                <div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:6px; padding:6px 9px; margin-bottom:8px;">
+                  <div style="display:flex; align-items:center; justify-content:space-between;">
+                    <div>
+                      <div style="font-size:9px; font-weight:700; color:#c2410c; text-transform:uppercase;">🚗 Fréquentation journalière</div>
+                      <div style="font-size:13px; font-weight:900; color:#9a3412;">${trafficDisplay}</div>
+                    </div>
+                    ${t.score_impact ? `<span style="font-size:10px; font-weight:700; color:#c2410c; background:#ffedd5; padding:2px 5px; border-radius:3px;">Impact ${t.score_impact}</span>` : ''}
+                  </div>
+                  ${otsDisplay ? `
+                  <div style="margin-top:4px; padding-top:4px; border-top:1px dashed #fed7aa; display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:9px; color:#c2410c; font-weight:600;">👁️ Vues mensuelles (30 j) :</span>
+                    <strong style="font-size:11px; color:#0369a1; font-weight:800;">${otsDisplay}</strong>
+                  </div>
+                  ` : ''}
+                </div>
+
+                <div class="popup-proximity-box">
+                  <div style="font-weight:800; color:#c2410c; margin-bottom:4px;">🎯 Couverture prospect :</div>
+                  <div>• <strong>${t.locs_within_5km || 0}</strong> points à ≤ 5 km</div>
+                  <div>• <strong>${t.locs_within_10km || 0}</strong> points à ≤ 10 km</div>
+                  <div>• <strong>${t.locs_within_20km || 0}</strong> points à ≤ 20 km</div>
+                </div>
+
+                <div style="display:flex; gap:6px;">
+                  <button type="button" class="btn btn-orange" style="flex:1; padding:6px 4px; font-size:11px; font-weight:700;" onclick="window.openTrailerModal('${t.id}')">
+                    Photo & Fiche
+                  </button>
+                  <a href="${t.lien}" target="_blank" class="btn btn-dark" style="padding:6px 9px; font-size:11px;" title="Site officiel Mmove">
+                    ↗
+                  </a>
+                </div>
+              </div>
+            </div>
+          `;
+          marker.bindPopup(popupHtml);
+          marker.on('click', () => highlightTrailerRadius(t));
+          trailersLayerGroup.addLayer(marker);
+        });
+      }
+
+      // 3. Cercles de rayon synchronisés avec le curseur (autour des points client)
+      if (currentFilters.showCircles && currentFilters.maxDistanceKm > 0 && currentFilters.showClient) {
+        const radiusMeters = currentFilters.maxDistanceKm * 1000;
+        filteredLocations.forEach(loc => {
+          if (loc.lat && loc.lng) {
+            L.circle([loc.lat, loc.lng], {
+              radius: radiusMeters,
+              color: 'var(--client-primary)',
+              fillColor: 'var(--client-primary)',
+              fillOpacity: 0.04,
+              weight: 1.5,
+              dashArray: '5, 6'
+            }).addTo(radiusLayerGroup);
+          }
+        });
+      }
+    }
+
+    function highlightTrailerRadius(t) {
+      linesLayerGroup.clearLayers();
+      L.circle([t.lat, t.lng], { radius: 5000, color: '#ea580c', fillColor: '#ea580c', fillOpacity: 0.12, weight: 2 }).addTo(linesLayerGroup);
+      L.circle([t.lat, t.lng], { radius: 10000, color: '#0284c7', dashArray: '6, 8', fillColor: '#0284c7', fillOpacity: 0.05, weight: 2 }).addTo(linesLayerGroup);
+      L.circle([t.lat, t.lng], { radius: 20000, color: '#6366f1', dashArray: '8, 8', fillColor: '#6366f1', fillOpacity: 0.02, weight: 1.5 }).addTo(linesLayerGroup);
+    }
+
+    function renderLists() {
+      // Locations List
+      const locsContainer = document.getElementById('locations-list');
+      locsContainer.innerHTML = '';
+      document.getElementById('locs-list-count').textContent = `${filteredLocations.length} points affichés`;
+
+      filteredLocations.slice(0, 50).forEach(l => {
+        const div = document.createElement('div');
+        div.style.cssText = 'padding:10px; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:8px; background:white; cursor:pointer;';
+        div.innerHTML = `
+          <div style="font-weight:800; font-size:12px; margin-bottom:2px;">${l.title}</div>
+          <div style="font-size:11px; color:#64748b; margin-bottom:6px;">📍 ${l.city}</div>
+          ${l.nearest_trailer ? `<span class="badge ${l.nearest_trailer.distance_km <= 5.0 ? 'badge-5k' : 'badge-10k'}">Panneau #${l.nearest_trailer.trailer_id} (${l.nearest_trailer.distance_km} km)</span>` : ''}
+        `;
+        div.addEventListener('click', () => {
+          map.setView([l.lat, l.lng], 13);
+          highlightLocationConnections(l);
+        });
+        locsContainer.appendChild(div);
+      });
+
+      // Trailers List (Enrichie avec Photo miniature et Fréquentation)
+      const trailersContainer = document.getElementById('trailers-list');
+      trailersContainer.innerHTML = '';
+      document.getElementById('trailers-list-count').textContent = `${filteredTrailers.length} panneaux`;
+
+      const sortMode = document.getElementById('sort-trailers')?.value || 'coverage-10k';
+      let sortedTrailers = [...filteredTrailers];
+      if (sortMode === 'traffic-desc') {
+        sortedTrailers.sort((a,b) => (b.frequentation_jour || 0) - (a.frequentation_jour || 0));
+      } else if (sortMode === 'coverage-20k') {
+        sortedTrailers.sort((a,b) => (b.locs_within_20km || 0) - (a.locs_within_20km || 0) || (b.locs_within_10km || 0) - (a.locs_within_10km || 0));
+      } else if (sortMode === 'coverage-10k') {
+        sortedTrailers.sort((a,b) => (b.locs_within_10km || 0) - (a.locs_within_10km || 0) || (b.locs_within_5km || 0) - (a.locs_within_5km || 0));
+      } else if (sortMode === 'coverage-5k') {
+        sortedTrailers.sort((a,b) => (b.locs_within_5km || 0) - (a.locs_within_5km || 0) || (b.locs_within_10km || 0) - (a.locs_within_10km || 0));
+      } else if (sortMode === 'id-asc') {
+        sortedTrailers.sort((a,b) => a.id - b.id);
+      }
+
+      sortedTrailers.slice(0, 60).forEach(t => {
+        const div = document.createElement('div');
+        div.style.cssText = 'padding:10px; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:8px; background:white; cursor:pointer; display:flex; gap:10px; align-items:center;';
+        const photoSrc = t.photo_url || t.photo_in || 'https://remorquepublicitaire.be/wp-content/uploads/2021/07/108in.jpg';
+        const trafficBadge = t.frequentation_fmt || (t.frequentation_jour ? t.frequentation_jour.toLocaleString('fr-FR') + ' véh./j' : '');
+        const otsBadge = t.frequentation_jour ? Math.round(t.frequentation_jour * 1.5 * 30).toLocaleString('fr-FR') + ' vues/m' : '';
+
+        div.innerHTML = `
+          <div style="width:58px; height:58px; border-radius:6px; overflow:hidden; background:#0f172a; flex-shrink:0;">
+            <img src="${photoSrc}" alt="#${t.id}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='https://remorquepublicitaire.be/wp-content/uploads/2021/07/108in.jpg';" />
+          </div>
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
+              <strong style="color:var(--mmove-orange);">#${t.id} - ${t.ville}</strong>
+              <span style="font-size:10px; color:#64748b;">${t.province || 'Wallonie'}</span>
+            </div>
+            <div style="font-size:11px; color:#64748b; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${t.axe || ''}</div>
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px;">
+              <div style="display:flex; gap:4px; align-items:center; flex-wrap:wrap;">
+                <span class="badge" style="background:#fff7ed; color:#c2410c; border:1px solid #fed7aa; font-size:10px;">🚗 ${trafficBadge}</span>
+                ${otsBadge ? `<span class="badge" style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-size:10px;" title="Vues mensuelles (30 jours × 1,5 contact/véhicule)">👁️ ${otsBadge}</span>` : ''}
+              </div>
+              <span style="font-size:10px; font-weight:700; color:#0f172a;">🎯 ${t.locs_within_5km || 0} pts (≤5km)</span>
+            </div>
+          </div>
+        `;
+        div.addEventListener('click', () => {
+          map.setView([t.lat, t.lng], 13);
+          highlightTrailerRadius(t);
+        });
+        trailersContainer.appendChild(div);
+      });
+    }
+
+    function buildTopTrailersTable() {
+      const tbody = document.getElementById('top-trailers-tbody');
+      tbody.innerHTML = '';
+
+      const sorted = [...allTrailers]
+        .sort((a,b) => (b.locs_within_10km || 0) - (a.locs_within_10km || 0) || (b.locs_within_5km || 0) - (a.locs_within_5km || 0) || (b.locs_within_20km || 0) - (a.locs_within_20km || 0))
+        .slice(0, 15);
+
+      sorted.forEach(t => {
+        const tr = document.createElement('tr');
+        tr.style.cursor = 'pointer';
+        const trafficFormatted = t.frequentation_fmt ? t.frequentation_fmt.replace(' véh./jour', '') : (t.frequentation_jour ? t.frequentation_jour.toLocaleString('fr-FR') : '-');
+        const otsFormatted = t.frequentation_jour ? Math.round(t.frequentation_jour * 1.5 * 30).toLocaleString('fr-FR') : '-';
+        tr.innerHTML = `
+          <td><strong>#${t.id}</strong><br><span style="color:#64748b; font-size:10px;">${t.ville}</span></td>
+          <td style="font-size:10px;">${t.axe || ''}</td>
+          <td>
+            <span style="font-size:10px; font-weight:800; color:#c2410c; background:#fff7ed; padding:2px 5px; border-radius:4px; border:1px solid #fed7aa; white-space:nowrap;">🚗 ${trafficFormatted}</span>
+            <div style="font-size:9px; font-weight:700; color:#0369a1; margin-top:2px; white-space:nowrap;" title="Vues mensuelles (30 j × 1,5 contact/véhicule)">👁️ ${otsFormatted} v/m</div>
+          </td>
+          <td><span class="badge badge-5k">${t.locs_within_5km || 0}</span></td>
+          <td><span class="badge badge-10k">${t.locs_within_10km || 0}</span></td>
+          <td><span class="badge" style="background:#e0e7ff;color:#4338ca;">${t.locs_within_20km || 0}</span></td>
+        `;
+        tr.addEventListener('click', () => {
+          map.setView([t.lat, t.lng], 13);
+          highlightTrailerRadius(t);
+          window.openTrailerModal(t.id);
+        });
+        tbody.appendChild(tr);
+      });
+    }
+
+    function parseCSV(text) {
+      const lines = text.trim().split(/\r?\n/).filter(l => l.trim().length > 0);
+      if (lines.length < 2) return [];
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/^["']|["']$/g, ''));
+      
+      const results = [];
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',').map(v => v.trim().replace(/^["']|["']$/g, ''));
+        const obj = {};
+        headers.forEach((h, idx) => { obj[h] = values[idx] || ''; });
+        
+        const lat = parseFloat(obj.latitude || obj.lat);
+        const lng = parseFloat(obj.longitude || obj.lng || obj.lon);
+        
+        results.push({
+          id: obj.id || String(i),
+          title: obj.nom || obj.name || obj.title || `Point #${i}`,
+          city: obj.ville || obj.city || '',
+          street: obj.adresse || obj.street || obj.rue || '',
+          type: obj.type || obj.categorie || 'Point de vente',
+          lat: !isNaN(lat) ? lat : null,
+          lng: !isNaN(lng) ? lng : null,
+          url: obj.url || obj.lien || ''
+        });
+      }
+      return results;
+    }
+
+    function setupEvents() {
+      // Sidebar Tabs
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+          document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+          btn.classList.add('active');
+          const tabId = btn.getAttribute('data-tab');
+          document.getElementById(`tab-${tabId}`).classList.add('active');
+        });
+      });
+
+      // Toggle Sidebar
+      document.getElementById('btn-toggle-sidebar').addEventListener('click', () => {
+        document.getElementById('sidebar').classList.toggle('collapsed');
+        setTimeout(() => map.invalidateSize(), 300);
+      });
+
+      // Search
+      document.getElementById('global-search').addEventListener('input', e => {
+        currentFilters.search = e.target.value;
+        applyFilters();
+      });
+
+      // Layers toggles
+      document.getElementById('layer-client').addEventListener('change', e => {
+        currentFilters.showClient = e.target.checked;
+        renderMarkers();
+      });
+      document.getElementById('layer-trailers').addEventListener('change', e => {
+        currentFilters.showTrailers = e.target.checked;
+        renderMarkers();
+      });
+
+      // Curseur Rayon & Couverture (0 - 20 km)
+      const distSlider = document.getElementById('coverage-radius-slider');
+      if (distSlider) {
+        distSlider.addEventListener('input', (e) => {
+          currentFilters.maxDistanceKm = parseInt(e.target.value, 10);
+          applyFilters();
+        });
+      }
+
+      // Checkbox Afficher les cercles sur la carte
+      const toggleCircles = document.getElementById('toggle-show-circles');
+      if (toggleCircles) {
+        toggleCircles.addEventListener('change', (e) => {
+          currentFilters.showCircles = e.target.checked;
+          renderMarkers();
+        });
+      }
+
+      // Sort Trailers Dropdown
+      const selectSort = document.getElementById('sort-trailers');
+      if (selectSort) {
+        selectSort.addEventListener('change', () => {
+          renderLists();
+        });
+      }
+
+      // Recenter
+      document.getElementById('btn-fit-bounds').addEventListener('click', () => {
+        const coords = filteredLocations.filter(l => l.lat && l.lng).map(l => [l.lat, l.lng]);
+        if (coords.length > 0) {
+          map.fitBounds(L.latLngBounds(coords), { padding: [50, 50] });
+        }
+      });
+
+      // Export Native Excel (.xlsx)
+      const btnExportExcel = document.getElementById('btn-export-excel');
+      if (btnExportExcel) {
+        btnExportExcel.addEventListener('click', () => {
+          exportToExcel();
+        });
+      }
+
+      // Copier pour Google Sheets
+      const btnCopySheets = document.getElementById('btn-copy-sheets');
+      if (btnCopySheets) {
+        btnCopySheets.addEventListener('click', () => {
+          copyForGoogleSheets();
+        });
+      }
+
+      // Simulation Modal Setup
+      const modal = document.getElementById('sim-modal');
+      document.getElementById('btn-open-sim').addEventListener('click', () => {
+        modal.style.display = 'flex';
+      });
+      document.getElementById('modal-close-btn').addEventListener('click', () => {
+        modal.style.display = 'none';
+      });
+      document.getElementById('btn-cancel-sim').addEventListener('click', () => {
+        modal.style.display = 'none';
+      });
+
+      // Drop Zone File
+      const dropZone = document.getElementById('drop-zone');
+      const fileInput = document.getElementById('file-input');
+      dropZone.addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', e => {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = ev => {
+            document.getElementById('sim-csv-content').value = ev.target.result;
+          };
+          reader.readAsText(file);
+        }
+      });
+
+      // Apply Simulation
+      document.getElementById('btn-apply-sim').addEventListener('click', () => {
+        const clientName = document.getElementById('sim-client-name').value.trim() || 'Nouveau Prospect';
+        const clientSector = document.getElementById('sim-client-sector').value.trim() || 'Secteur Commercial';
+        const clientColor = document.getElementById('sim-client-color').value;
+        const clientIcon = document.getElementById('sim-client-icon').value;
+        const entityPlural = document.getElementById('sim-entity-plural').value.trim() || 'Points de vente';
+        const csvText = document.getElementById('sim-csv-content').value.trim();
+
+        if (!csvText) {
+          alert('Veuillez fournir au moins quelques lignes de données CSV.');
+          return;
+        }
+
+        const parsedLocs = parseCSV(csvText);
+        if (parsedLocs.length === 0) {
+          alert('Erreur de lecture du fichier CSV. Vérifiez le format.');
+          return;
+        }
+
+        appConfig = {
+          client_id: clientName.toLowerCase().replace(/\s+/g, '-'),
+          client_name: clientName,
+          client_sector: clientSector,
+          branding: {
+            primary_color: clientColor,
+            icon_type: clientIcon
+          },
+          terminology: {
+            entity_name_plural: entityPlural
+          }
+        };
+
+        allLocations = parsedLocs;
+        applyConfig(appConfig);
+        calculateProximities();
+        updateKPIs();
+        applyFilters();
+
+        modal.style.display = 'none';
+        const validCoords = allLocations.filter(l => l.lat && l.lng).map(l => [l.lat, l.lng]);
+        if (validCoords.length > 0) {
+          map.fitBounds(L.latLngBounds(validCoords), { padding: [50, 50] });
+        }
+      });
+
+      // Écouteurs de fermeture de la Fenêtre Modale Panneau
+      const trailerModal = document.getElementById('trailer-modal');
+      const btnCloseTrailerModal = document.getElementById('btn-close-trailer-modal');
+      const trailerModalCloseBtn = document.getElementById('trailer-modal-close-btn');
+      if (btnCloseTrailerModal) {
+        btnCloseTrailerModal.addEventListener('click', () => {
+          if (trailerModal) trailerModal.style.display = 'none';
+        });
+      }
+      if (trailerModalCloseBtn) {
+        trailerModalCloseBtn.addEventListener('click', () => {
+          if (trailerModal) trailerModal.style.display = 'none';
+        });
+      }
+      if (trailerModal) {
+        trailerModal.addEventListener('click', (e) => {
+          if (e.target === trailerModal) trailerModal.style.display = 'none';
+        });
+      }
+    }
+
+    // Fonction d'ouverture et d'affichage de la Fiche Détaillée Panneau dans la Modale
+    window.openTrailerModal = function(trailerId) {
+      const t = allTrailers.find(item => String(item.id) === String(trailerId));
+      if (!t) return;
+
+      const titleEl = document.getElementById('trailer-modal-title');
+      if (titleEl) {
+        titleEl.innerHTML = `
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+          <span style="color:var(--mmove-orange);">Panneau #${t.id}</span> &mdash; ${t.ville || ''}
+        `;
+      }
+
+      // Photos
+      const imgEl = document.getElementById('trailer-modal-img');
+      const toggleBox = document.getElementById('trailer-modal-photo-toggle');
+      const btnIn = document.getElementById('btn-photo-in');
+      const btnOut = document.getElementById('btn-photo-out');
+
+      const photoIn = t.photo_in || t.photo_url || '';
+      const photoOut = t.photo_out || '';
+      const defaultPhoto = 'https://remorquepublicitaire.be/wp-content/uploads/2021/07/108in.jpg';
+
+      if (imgEl) imgEl.src = photoIn || photoOut || defaultPhoto;
+
+      if (toggleBox && btnIn && btnOut) {
+        if (photoIn && photoOut && photoIn !== photoOut) {
+          toggleBox.style.display = 'flex';
+          btnIn.onclick = () => {
+            imgEl.src = photoIn;
+            btnIn.style.background = 'var(--mmove-orange)';
+            btnIn.style.color = 'white';
+            btnOut.style.background = 'rgba(15,23,42,0.9)';
+            btnOut.style.color = '#94a3b8';
+          };
+          btnOut.onclick = () => {
+            imgEl.src = photoOut;
+            btnOut.style.background = 'var(--mmove-orange)';
+            btnOut.style.color = 'white';
+            btnIn.style.background = 'rgba(15,23,42,0.9)';
+            btnIn.style.color = '#94a3b8';
+          };
+          btnIn.click();
+        } else {
+          toggleBox.style.display = 'none';
+        }
+      }
+
+      // Fréquentation journalière & Vues OTS
+      const trafficVal = t.frequentation_fmt || (t.frequentation_jour ? t.frequentation_jour.toLocaleString('fr-FR') + ' véh./jour' : '12 400 véh./jour');
+      const trafficEl = document.getElementById('trailer-modal-traffic');
+      if (trafficEl) trafficEl.textContent = trafficVal;
+
+      const otsVal = t.frequentation_jour ? Math.round(t.frequentation_jour * 1.5 * 30).toLocaleString('fr-FR') + ' vues' : '--';
+      const otsEl = document.getElementById('trailer-modal-ots');
+      if (otsEl) otsEl.textContent = otsVal;
+
+      const trafficSubEl = document.getElementById('trailer-modal-traffic-sub');
+      if (trafficSubEl) {
+        trafficSubEl.textContent = `Trafic moyen journalier ${t.indice_confiance ? '• Indice : ' + t.indice_confiance : ''}`;
+      }
+
+      // Axe & Commune
+      const axeEl = document.getElementById('trailer-modal-axe');
+      if (axeEl) axeEl.textContent = t.axe || t.nom_route || 'Axe non spécifié';
+
+      const communeEl = document.getElementById('trailer-modal-commune');
+      if (communeEl) {
+        communeEl.textContent = `${t.commune || t.ville} (${t.province || 'Wallonie'}) ${t.code_route ? '• ' + t.code_route : ''}`;
+      }
+
+      // Directions & Visibilité
+      const dirInEl = document.getElementById('trailer-modal-dirin');
+      if (dirInEl) dirInEl.textContent = t.dir_in || 'Double sens';
+
+      const dirOutEl = document.getElementById('trailer-modal-dirout');
+      if (dirOutEl) dirOutEl.textContent = t.dir_out || 'Double sens';
+
+      const impactEl = document.getElementById('trailer-modal-impact');
+      if (impactEl) {
+        impactEl.textContent = t.contexte_visibilite || (t.score_impact ? 'Score impact : ' + t.score_impact : 'Excellente visibilité');
+      }
+
+      // Couverture prospect
+      const covSumEl = document.getElementById('trailer-modal-cov-summary');
+      if (covSumEl) {
+        covSumEl.textContent = `${t.locs_within_5km || 0} pts (≤5km) • ${t.locs_within_10km || 0} pts (≤10km) • ${t.locs_within_20km || 0} pts (≤20km)`;
+      }
+
+      const listEl = document.getElementById('trailer-modal-locations-list');
+      if (listEl) {
+        listEl.innerHTML = '';
+        if (t.nearby_locations && t.nearby_locations.length > 0) {
+          t.nearby_locations.slice(0, 10).forEach(loc => {
+            const item = document.createElement('div');
+            item.style.cssText = 'padding:6px 0; border-bottom:1px solid #f1f5f9; display:flex; justify-content:space-between; align-items:center;';
+            item.innerHTML = `
+              <span>📍 <strong>${loc.title}</strong> <span style="color:#64748b; font-size:11px;">(${loc.city || ''})</span></span>
+              <span class="badge ${loc.distance_km <= 5 ? 'badge-5k' : 'badge-10k'}">${loc.distance_km.toFixed(1)} km</span>
+            `;
+            listEl.appendChild(item);
+          });
+        } else {
+          listEl.innerHTML = '<div style="color:#94a3b8; font-style:italic; padding:6px 0;">Aucun point client dans un rayon de 20 km.</div>';
+        }
+      }
+
+      const linkEl = document.getElementById('trailer-modal-link');
+      if (linkEl) {
+        linkEl.href = t.lien || `https://remorquepublicitaire.be/remorque/${t.id}`;
+      }
+
+      const modalEl = document.getElementById('trailer-modal');
+      if (modalEl) modalEl.style.display = 'flex';
+    };
+
+    function loadInitialData() {
+      if (window.APP_DATA && window.APP_DATA.locations && window.APP_DATA.trailers) {
+        appConfig = window.APP_DATA.config || {};
+        allLocations = window.APP_DATA.locations || [];
+        allTrailers = window.APP_DATA.trailers || [];
+        applyConfig(appConfig);
+        calculateProximities();
+        updateKPIs();
+        applyFilters();
+      } else {
+        // Fallback to fetch data.json
+        fetch('data.json')
+          .then(res => res.json())
+          .then(data => {
+            window.APP_DATA = data;
+            appConfig = data.config || {};
+            allLocations = data.locations || [];
+            allTrailers = data.trailers || [];
+            applyConfig(appConfig);
+            calculateProximities();
+            updateKPIs();
+            applyFilters();
+          })
+          .catch(err => {
+            console.log('No data.json found, checking for map_data.json fallback', err);
+            fetch('map_data.json')
+              .then(r => r.json())
+              .then(d => {
+                appConfig = {
+                  client_name: d.metadata?.agency || 'Marjorie Thomas',
+                  client_sector: 'Immobilier',
+                  branding: { primary_color: '#C22938', icon_type: 'home' },
+                  terminology: { entity_name_plural: 'Biens à vendre' }
+                };
+                allLocations = d.properties || [];
+                allTrailers = d.trailers || [];
+                applyConfig(appConfig);
+                calculateProximities();
+                updateKPIs();
+                applyFilters();
+              })
+              .catch(e => console.error('Data load error:', e));
+          });
+      }
+    }
+
+    function exportToExcel() {
+      if (typeof XLSX === 'undefined') {
+        alert("La bibliothèque Excel (SheetJS) est en cours de chargement. Veuillez patienter un instant.");
+        return;
+      }
+
+      const clientName = appConfig.client_name || 'Prospect';
+      const trailersToExport = filteredTrailers && filteredTrailers.length > 0 ? filteredTrailers : allTrailers;
+      const maxDist = currentFilters.maxDistanceKm > 0 ? currentFilters.maxDistanceKm : 20.0;
+      const activeFilterLabel = currentFilters.maxDistanceKm > 0 ? `≤ ${currentFilters.maxDistanceKm} km` : 'Tous (Réseau complet)';
+
+      const wb = XLSX.utils.book_new();
+
+      // ==========================================
+      // Onglet 1 (Principal) : Sélection Panneaux
+      // ==========================================
+      const selectionHeaders = [
+        "Sélection",
+        "ID Panneau",
+        "Commune",
+        "Axe Routier & Emplacement",
+        "Sens de Circulation",
+        "Fréquentation (véh./jour)",
+        "Vues (OTS)",
+        "Distance mini (km)",
+        "Site le plus proche",
+        "Sites couverts & Distances",
+        "Lien Fiche Mmove"
+      ];
+
+      const selectionRows = [selectionHeaders];
+
+      trailersToExport.forEach(t => {
+        const freqJour = typeof t.frequentation_jour === 'number' ? t.frequentation_jour : (parseInt(t.frequentation_jour, 10) || 0);
+        const vuesOTS = freqJour > 0 ? Math.round(freqJour * 30 * 1.5) : 0; // 30 jours x 1.5
+
+        // Calcul des sites couverts dans le rayon du filtre
+        const covered = [];
+        let nearestLoc = null;
+        let minDist = Infinity;
+
+        allLocations.forEach(loc => {
+          if (!loc.lat || !loc.lng) return;
+          const d = haversineDist(t.lat, t.lng, loc.lat, loc.lng);
+          if (d != null) {
+            if (d < minDist) {
+              minDist = d;
+              nearestLoc = loc;
+            }
+            if (d <= maxDist) {
+              covered.push({ id: loc.id, title: loc.title, city: loc.city, distance: d });
+            }
+          }
+        });
+        covered.sort((a, b) => a.distance - b.distance);
+
+        const nearestDist = (covered.length > 0) ? covered[0].distance : (minDist !== Infinity ? minDist : null);
+        const nearestTitle = (covered.length > 0) ? covered[0].title : (nearestLoc ? nearestLoc.title : "—");
+
+        let sitesText = "";
+        if (covered.length > 0) {
+          sitesText = covered.map(c => `• ${c.title} (${c.distance} km)`).join('\n');
+        } else {
+          sitesText = nearestLoc ? `(Plus proche : ${nearestLoc.title} à ${minDist} km)` : "—";
+        }
+
+        const axeText = [t.axe, t.localisation].filter(Boolean).join(' - ');
+        const sensText = [t.dir_in, t.dir_out].filter(Boolean).join(' / ');
+
+        selectionRows.push([
+          "", // Sélection (colonne vide pour la prise de note du client)
+          t.id,
+          t.ville || "",
+          axeText,
+          sensText,
+          freqJour > 0 ? freqJour : 0,
+          vuesOTS > 0 ? vuesOTS : 0,
+          nearestDist != null ? nearestDist : "",
+          nearestTitle,
+          sitesText,
+          t.lien || ""
+        ]);
+      });
+
+      // Ligne de Total cumulé pour la sélection
+      const totalFreq = trailersToExport.reduce((sum, tr) => sum + (parseInt(tr.frequentation_jour, 10) || 0), 0);
+      const totalOTS = Math.round(totalFreq * 30 * 1.5);
+      selectionRows.push([
+        "TOTAL",
+        `${trailersToExport.length} panneaux`,
+        "",
+        "",
+        "",
+        totalFreq,
+        totalOTS,
+        "",
+        "",
+        "",
+        ""
+      ]);
+
+      const wsSelection = XLSX.utils.aoa_to_sheet(selectionRows);
+      wsSelection['!cols'] = [
+        { wch: 12 }, // Sélection
+        { wch: 14 }, // ID Panneau
+        { wch: 22 }, // Commune
+        { wch: 38 }, // Axe Routier & Emplacement
+        { wch: 28 }, // Sens de Circulation
+        { wch: 26 }, // Fréquentation (véh./jour)
+        { wch: 20 }, // Vues (OTS)
+        { wch: 18 }, // Distance mini (km)
+        { wch: 32 }, // Site le plus proche
+        { wch: 50 }, // Sites couverts & Distances
+        { wch: 40 }  // Lien Fiche Mmove
+      ];
+      XLSX.utils.book_append_sheet(wb, wsSelection, "Sélection Panneaux");
+
+      // ==========================================
+      // Onglet 2 : Synthèse Stratégique
+      // ==========================================
+      const valid = allLocations.filter(l => l.lat && l.lng);
+      const total = valid.length;
+      const within5 = valid.filter(l => l.nearest_trailer && l.nearest_trailer.distance_km <= 5.0).length;
+      const within10 = valid.filter(l => l.nearest_trailer && l.nearest_trailer.distance_km <= 10.0).length;
+      const within20 = valid.filter(l => l.nearest_trailer && l.nearest_trailer.distance_km <= 20.0).length;
+
+      const syntheseData = [
+        ["AUDIT STRATÉGIQUE & SÉLECTION DE PANNEAUX MMOVES"],
+        ["Régie Publicitaire :", "M Move (Media See) - remorquepublicitaire.be"],
+        ["Client / Prospect :", clientName],
+        ["Secteur :", appConfig.client_sector || "Commercial"],
+        ["Date de l'export :", new Date().toLocaleDateString('fr-FR')],
+        ["Filtre appliqué :", activeFilterLabel],
+        [""],
+        ["RÉCAPITULATIF DE LA SÉLECTION", "VALEUR"],
+        ["Nombre de panneaux affichés", trailersToExport.length],
+        ["Trafic journalier cumulé", `${totalFreq.toLocaleString('fr-FR')} véh./jour`],
+        ["Vues mensuelles (OTS - 30j x 1.5)", `${totalOTS.toLocaleString('fr-FR')} vues`],
+        [""],
+        ["COUVERTURE GLOBALE DU PARC CLIENT", "POINTS TOUCHÉS", "% COUVERTURE"],
+        ["Points en Impact Direct (≤ 5 km d'un panneau)", within5, `${total ? ((within5/total)*100).toFixed(1) : 0}%`],
+        ["Points en Zone de Chalandise Proche (≤ 10 km)", within10, `${total ? ((within10/total)*100).toFixed(1) : 0}%`],
+        ["Points en Couverture Élargie (≤ 20 km)", within20, `${total ? ((within20/total)*100).toFixed(1) : 0}%`],
+        ["Total sites client analysés", total, "100%"],
+        ["Parc total remorques Mmove en Wallonie", allTrailers.length, `${allTrailers.length} emplacements`]
+      ];
+      const wsSynthese = XLSX.utils.aoa_to_sheet(syntheseData);
+      wsSynthese['!cols'] = [{ wch: 45 }, { wch: 25 }, { wch: 20 }];
+      XLSX.utils.book_append_sheet(wb, wsSynthese, "Synthèse Stratégique");
+
+      // ==========================================
+      // Onglet 3 : Sites Prospect & Proximités
+      // ==========================================
+      const pointsData = [
+        ["ID", "Nom", "Ville", "Adresse", "Panneau Mmove le plus proche (ID)", "Commune Panneau", "Axe Routier", "Fréquentation Panneau (véh./jour)", "Vues OTS Panneau", "Distance (km)", "Impact ≤ 5km", "Zone ≤ 10km", "Zone ≤ 20km"]
+      ];
+      allLocations.forEach(loc => {
+        const d = loc.nearest_trailer ? loc.nearest_trailer.distance_km : null;
+        const nt = loc.nearest_trailer ? allTrailers.find(tr => tr.id === loc.nearest_trailer.trailer_id) : null;
+        const nFreq = nt ? (parseInt(nt.frequentation_jour, 10) || 0) : 0;
+        const nOTS = nFreq > 0 ? Math.round(nFreq * 30 * 1.5) : 0;
+        pointsData.push([
+          loc.id || '',
+          loc.title || '',
+          loc.city || '',
+          loc.street || '',
+          loc.nearest_trailer ? loc.nearest_trailer.trailer_id : 'Aucun',
+          loc.nearest_trailer ? loc.nearest_trailer.ville : '',
+          loc.nearest_trailer ? loc.nearest_trailer.axe : '',
+          nFreq > 0 ? nFreq : '',
+          nOTS > 0 ? nOTS : '',
+          d != null ? d : '',
+          d != null && d <= 5.0 ? 'OUI' : 'NON',
+          d != null && d <= 10.0 ? 'OUI' : 'NON',
+          d != null && d <= 20.0 ? 'OUI' : 'NON'
+        ]);
+      });
+      const wsPoints = XLSX.utils.aoa_to_sheet(pointsData);
+      wsPoints['!cols'] = [{ wch: 10 }, { wch: 30 }, { wch: 20 }, { wch: 30 }, { wch: 15 }, { wch: 20 }, { wch: 30 }, { wch: 22 }, { wch: 20 }, { wch: 15 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
+      XLSX.utils.book_append_sheet(wb, wsPoints, "Sites Prospect");
+
+      const fileSlug = (clientName).toLowerCase().replace(/[^a-z0-9]+/g, '_');
+      XLSX.writeFile(wb, `selection_panneaux_${fileSlug}.xlsx`);
+    }
+
+    function copyForGoogleSheets() {
+      const trailersToExport = filteredTrailers && filteredTrailers.length > 0 ? filteredTrailers : allTrailers;
+      const maxDist = currentFilters.maxDistanceKm > 0 ? currentFilters.maxDistanceKm : 20.0;
+
+      const headers = [
+        "Sélection",
+        "ID_Panneau",
+        "Commune",
+        "Axe_Routier_Emplacement",
+        "Sens_Circulation",
+        "Frequentation_veh_jour",
+        "Vues_OTS_mensuel",
+        "Distance_mini_km",
+        "Site_Plus_Proche",
+        "Sites_Couverts_Distances",
+        "Lien_Fiche_Mmove"
+      ];
+
+      let tsv = headers.join("\t") + "\n";
+
+      trailersToExport.forEach(t => {
+        const freqJour = typeof t.frequentation_jour === 'number' ? t.frequentation_jour : (parseInt(t.frequentation_jour, 10) || 0);
+        const vuesOTS = freqJour > 0 ? Math.round(freqJour * 30 * 1.5) : 0;
+
+        const covered = [];
+        let nearestLoc = null;
+        let minDist = Infinity;
+        allLocations.forEach(loc => {
+          if (!loc.lat || !loc.lng) return;
+          const d = haversineDist(t.lat, t.lng, loc.lat, loc.lng);
+          if (d != null) {
+            if (d < minDist) {
+              minDist = d;
+              nearestLoc = loc;
+            }
+            if (d <= maxDist) {
+              covered.push({ id: loc.id, title: loc.title, city: loc.city, distance: d });
+            }
+          }
+        });
+        covered.sort((a, b) => a.distance - b.distance);
+
+        const nearestDist = (covered.length > 0) ? covered[0].distance : (minDist !== Infinity ? minDist : "");
+        const nearestTitle = (covered.length > 0) ? covered[0].title : (nearestLoc ? nearestLoc.title : "—");
+
+        let sitesText = "";
+        if (covered.length > 0) {
+          sitesText = covered.map(c => `• ${c.title} (${c.distance} km)`).join('\n');
+        } else {
+          sitesText = nearestLoc ? `(Plus proche : ${nearestLoc.title} à ${minDist} km)` : "—";
+        }
+
+        const axeText = [t.axe, t.localisation].filter(Boolean).join(' - ');
+        const sensText = [t.dir_in, t.dir_out].filter(Boolean).join(' / ');
+
+        const escapedSitesText = '"' + sitesText.replace(/"/g, '""') + '"';
+
+        tsv += [
+          "", // Sélection (colonne vide pour que le client coche)
+          t.id,
+          t.ville || "",
+          axeText,
+          sensText,
+          freqJour > 0 ? freqJour : "",
+          vuesOTS > 0 ? vuesOTS : "",
+          nearestDist,
+          nearestTitle,
+          escapedSitesText,
+          t.lien || ""
+        ].join("\t") + "\n";
+      });
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(tsv).then(() => {
+          alert(`✅ Sélection de ${trailersToExport.length} panneaux copiée dans le presse-papier !\n\nOuvrez une feuille Google Sheets vide et faites simplement Ctrl+V (ou Cmd+V) pour coller le tableau complet.`);
+        }).catch(err => {
+          prompt("Copiez les données ci-dessous (Ctrl+C) puis collez dans Google Sheets :", tsv);
+        });
+      } else {
+        prompt("Copiez les données ci-dessous (Ctrl+C) puis collez dans Google Sheets :", tsv);
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      initMap();
+      setupEvents();
+      loadInitialData();
+    });
+  </script>
+</body>
+</html>

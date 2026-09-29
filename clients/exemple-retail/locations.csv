@@ -1,0 +1,13 @@
+id,nom,adresse,ville,latitude,longitude,type,statut,url,image,description
+RET-01,Supermarché Namur Salzinnes,Rue de la Meuse 45,Namur,50.4612,4.8456,Supermarché 1500m²,Actif,https://exemple-supermarche.be/namur,,Supermarché avec boulangerie artisanale et boucherie
+RET-02,Supermarché Jambes Meuse,Avenue Jean Materne 110,Jambes,50.4523,4.8712,Supermarché & Drive,Actif,https://exemple-supermarche.be/jambes,,Service Click & Collect et bornes de recharge électrique
+RET-03,Supermarché Charleroi Rive Gauche,Place Verte 20,Charleroi,50.4102,4.4411,Format Urbain Express,Actif,https://exemple-supermarche.be/charleroi,,Magasin de proximité centre commercial Rive Gauche
+RET-04,Hypermarché Châtelineau Cora,Rue Bel Air 1,Châtelineau,50.4289,4.5212,Hypermarché 4000m²,Actif,https://exemple-supermarche.be/chatelineau,,Grand complexe commercial avec drive et station-service
+RET-05,Supermarché Sombreffe N98,Chaussée de Nivelles 22,Sombreffe,50.5312,4.5982,Supermarché & Drive,Actif,https://exemple-supermarche.be/sombreffe,,Accès direct axe N98 avec parking 120 places
+RET-06,Supermarché Sambreville - Auvelais,Rue du Pont 15,Auvelais,50.4431,4.6318,Supermarché 1800m²,Actif,https://exemple-supermarche.be/auvelais,,Zone commerciale Basse-Sambre
+RET-07,Supermarché Fosses-la-Ville,Chaussée de Namur 80,Fosses-la-Ville,50.4012,4.7012,Supermarché Régional,Actif,https://exemple-supermarche.be/fosses,,Magasin récent avec large assortiment de produits locaux
+RET-08,Supermarché Wavre Centre,Chaussée de Louvain 67,Wavre,50.7189,4.6112,Supermarché & Drive,Actif,https://exemple-supermarche.be/wavre,,Proximité E411 sortie Wavre
+RET-09,Supermarché Nivelles Shopping,Chaussée de Mons 18,Nivelles,50.5982,4.3312,Supermarché 2200m²,Actif,https://exemple-supermarche.be/nivelles,,Galerie commerçante Shopping Nivelles
+RET-10,Supermarché Liège Guillemins,Place des Guillemins 4,Liège,50.6245,5.5689,Format Gare Express,Actif,https://exemple-supermarche.be/liege,,Ouvert 7j/7 pour les navetteurs et riverains
+RET-11,Supermarché Huy Meuse,Avenue des Ardennes 33,Huy,50.5189,5.2391,Supermarché 1400m²,Actif,https://exemple-supermarche.be/huy,,Parking couvert et point retrait colis
+RET-12,Supermarché Mons Grand Large,Avenue du Large 5,Mons,50.4689,3.9456,Supermarché & Drive,Actif,https://exemple-supermarche.be/mons,,Zone récréative et résidentielle du Grand Large

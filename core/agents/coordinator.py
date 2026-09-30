@@ -28,6 +28,10 @@ class CoordinatorAgent:
         self.sync = SyncManager(engine_tools=self.engine)
         self.map_service = MapGeneratorService()
         self.pdf_service = CampaignPdfService()
+        from core.agents.salesperson_service import SalespersonService
+        from core.agents.dossier_service import DossierService
+        self.salesperson_service = SalespersonService()
+        self.dossier_service = DossierService(salesperson_service=self.salesperson_service)
         self.current_client_name: Optional[str] = None
         self.last_campaign_plan: Optional[Dict[str, Any]] = None
         if auto_sync:
@@ -36,7 +40,9 @@ class CoordinatorAgent:
     def process_message(
         self,
         user_message: str,
-        conversation_history: Optional[List[Dict[str, Any]]] = None
+        conversation_history: Optional[List[Dict[str, Any]]] = None,
+        client_name: Optional[str] = None,
+        salesperson_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Traite un message utilisateur de bout en bout.
@@ -72,20 +78,34 @@ class CoordinatorAgent:
         if detected_locations:
             extracted["locations"] = detected_locations
 
-        # Prise en compte du nom de client s'il est spécifié dans l'extraction
+        # Prise en compte du commercial connecté
+        current_sp = self.salesperson_service.get(salesperson_id)
+
+        # Prise en compte du nom de client s'il est spécifié en paramètre ou dans l'extraction
+        if client_name and client_name.strip():
+            self.current_client_name = client_name.strip()
         if extracted.get("client_name"):
             self.current_client_name = extracted["client_name"]
 
         # Traitement spécifique : Définition ou mise à jour directe du client (ex: "Le client est Greenrobot" ou "Client: Greenrobot")
         if intent == "set_client_name" or (extracted.get("client_name") and not extracted.get("locations") and not extracted.get("axes") and not extracted.get("target_periods") and not extracted.get("target_id") and intent not in ["check_availability", "creative_advice", "technical_specs"]):
-            client_name = extracted.get("client_name") or self.current_client_name or "Client"
-            self.current_client_name = client_name
+            client_name_val = extracted.get("client_name") or self.current_client_name or "Client"
+            self.current_client_name = client_name_val
             if self.last_campaign_plan:
-                # Régénérer le PDF avec le nouveau nom de client
-                pdf_path = self.pdf_service.generate_campaign_pdf(self.last_campaign_plan, client_name=client_name)
+                # Régénérer le PDF avec le nouveau nom de client et le commercial
+                pdf_path = self.pdf_service.generate_campaign_pdf(self.last_campaign_plan, client_name=client_name_val, salesperson=current_sp)
                 self.last_campaign_plan["pdf_url"] = f"/api/download-plan-pdf?file={os.path.basename(pdf_path)}"
-                self.last_campaign_plan["client_name"] = client_name
+                self.last_campaign_plan["client_name"] = client_name_val
+                # Sauvegarde du dossier mis à jour
                 first_month_panels = self.last_campaign_plan["months"][0]["panels"] if self.last_campaign_plan.get("months") else []
+                dossier = self.dossier_service.save_dossier(
+                    salesperson_id=current_sp.get("initials", "DR"),
+                    client_name=client_name_val,
+                    campaign_plan=self.last_campaign_plan,
+                    candidate_panels=first_month_panels,
+                    user_message=user_message
+                )
+                self.last_campaign_plan["dossier_id"] = dossier.get("id")
                 frontend_panels = []
                 for p in first_month_panels:
                     dir_str = p.get("direction_in") or p.get("direction_out") or "Double sens"
@@ -199,15 +219,24 @@ class CoordinatorAgent:
             campaign_plan["client_name"] = eff_client
 
             # Génération du Plan Média complet au format PDF A4 Paysage
-            pdf_path = self.pdf_service.generate_campaign_pdf(campaign_plan, client_name=eff_client)
+            pdf_path = self.pdf_service.generate_campaign_pdf(campaign_plan, client_name=eff_client, salesperson=current_sp)
             campaign_plan["pdf_url"] = f"/api/download-plan-pdf?file={os.path.basename(pdf_path)}"
-
-            self.last_campaign_plan = campaign_plan
 
             # Panneaux de référence pour l'affichage initial
             candidate_panels = []
             if campaign_plan.get("months"):
                 candidate_panels = campaign_plan["months"][0]["panels"]
+
+            # Sauvegarde automatique du dossier commercial
+            dossier = self.dossier_service.save_dossier(
+                salesperson_id=current_sp.get("initials", "DR"),
+                client_name=eff_client,
+                campaign_plan=campaign_plan,
+                candidate_panels=candidate_panels,
+                user_message=user_message
+            )
+            campaign_plan["dossier_id"] = dossier.get("id")
+            self.last_campaign_plan = campaign_plan
 
         else:
             # Recherche géographique & critères (search_panels ou check_availability par zone)
@@ -307,5 +336,7 @@ class CoordinatorAgent:
             "extracted": extracted,
             "timing": timing,
             "campaign_plan": campaign_plan,
-            "client_name": self.current_client_name
+            "client_name": self.current_client_name,
+            "salesperson": current_sp,
+            "dossier_id": campaign_plan.get("dossier_id") if campaign_plan else None
         }

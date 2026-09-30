@@ -16,3 +16,5 @@ data/maps/*
 !data/maps/.gitkeep
 data/pdf/*
 !data/pdf/.gitkeep
+data/dossiers/*
+!data/dossiers/.gitkeep

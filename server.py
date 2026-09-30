@@ -9,6 +9,7 @@ Expose les endpoints :
 
 import os
 import json
+import urllib.parse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from core.agents.coordinator import CoordinatorAgent
 
@@ -53,6 +54,50 @@ class MmoveHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(sync_info, ensure_ascii=False).encode("utf-8"))
             return
 
+        # Référentiel des commerciaux synchronisé Google Sheets
+        if self.path == "/api/salespeople":
+            self._set_headers(200)
+            sp_list = coordinator.salesperson_service.get_all()
+            self.wfile.write(json.dumps(sp_list, ensure_ascii=False).encode("utf-8"))
+            return
+
+        # Liste des dossiers (filtrée par droits commerciaux ou vue globale admin)
+        if self.path.startswith("/api/dossiers"):
+            parsed_url = urllib.parse.urlparse(self.path)
+            query_params = urllib.parse.parse_qs(parsed_url.query)
+            user_id = query_params.get("user_id", [None])[0]
+            filter_sp = query_params.get("filter", [None])[0]
+
+            self._set_headers(200)
+            dossiers = coordinator.dossier_service.list_dossiers(
+                requesting_user_id=user_id,
+                filter_salesperson=filter_sp
+            )
+            self.wfile.write(json.dumps(dossiers, ensure_ascii=False).encode("utf-8"))
+            return
+
+        # Détail d'un dossier spécifique pour rechargement
+        if self.path.startswith("/api/dossier"):
+            parsed_url = urllib.parse.urlparse(self.path)
+            query_params = urllib.parse.parse_qs(parsed_url.query)
+            dossier_id = query_params.get("id", [None])[0]
+            user_id = query_params.get("user_id", [None])[0]
+
+            if not dossier_id:
+                self._set_headers(400)
+                self.wfile.write(b'{"error": "Dossier ID required"}')
+                return
+
+            dossier = coordinator.dossier_service.get_dossier(dossier_id, requesting_user_id=user_id)
+            if not dossier:
+                self._set_headers(404)
+                self.wfile.write(b'{"error": "Dossier non trouve ou acces non autorise"}')
+                return
+
+            self._set_headers(200)
+            self.wfile.write(json.dumps(dossier, ensure_ascii=False).encode("utf-8"))
+            return
+
         if self.path == "/api/network-trailers":
             self._set_headers(200)
             network = []
@@ -92,7 +137,6 @@ class MmoveHandler(BaseHTTPRequestHandler):
 
         # Téléchargement du Plan Média PDF (A4 Paysage)
         if self.path.startswith("/api/download-plan-pdf") or self.path.startswith("/api/pdf/"):
-            import urllib.parse
             parsed = urllib.parse.urlparse(self.path)
             query_params = urllib.parse.parse_qs(parsed.query)
             filename = query_params.get("file", [None])[0]
@@ -418,15 +462,24 @@ class MmoveHandler(BaseHTTPRequestHandler):
             </div>
 
             <!-- Sync Live Badge -->
-            <div id="statsBadge" class="hidden xl:flex text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-xl text-[#666] dark:text-slate-300 items-center space-x-2 shadow-inner">
+            <div id="statsBadge" class="hidden 2xl:flex text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-xl text-[#666] dark:text-slate-300 items-center space-x-2 shadow-inner">
                 <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 <span>133 panneaux (266 faces)</span>
             </div>
 
-            <!-- Sync Button -->
-            <button onclick="triggerSync('all')" title="Forcer la vérification immédiate des disponibilités" class="text-xs bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 px-2.5 py-1.5 rounded-xl text-[#F4920D] hover:text-[#FF5B34] transition flex items-center space-x-1 font-medium">
-                <i class="fa-solid fa-arrows-rotate" id="syncIcon"></i>
-                <span class="hidden md:inline">Sync</span>
+            <!-- Bouton Dossiers / Historique -->
+            <button onclick="toggleDossiersDrawer()" title="Consulter l'historique des dossiers et propositions" class="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-xs">
+                <i class="fa-solid fa-folder-open text-[#F4920D]"></i>
+                <span id="dossiersBtnLabel" class="hidden sm:inline">Dossiers</span>
+                <span id="dossiersCountBadge" class="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#F4920D] text-white">0</span>
+            </button>
+
+            <!-- Profil Commercial Actif / Switcher -->
+            <button onclick="openProfileModal()" id="currentProfileBtn" title="Changer de commercial" class="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-200">
+                <span id="profileAvatar" class="w-6 h-6 rounded-lg bg-[#F4920D] text-white flex items-center justify-center text-[10px] font-black shadow-xs">DR</span>
+                <span id="profileName" class="font-bold hidden md:inline">David Rossomme</span>
+                <span id="profileRoleBadge" class="hidden text-[9px] px-1.5 py-0.2 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 font-extrabold uppercase border border-purple-500/20">Admin</span>
+                <i class="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
             </button>
 
             <!-- Dark / Light Mode Toggle -->
@@ -445,6 +498,26 @@ class MmoveHandler(BaseHTTPRequestHandler):
     <main class="flex-1 flex overflow-hidden relative">
         <!-- COLONNE GAUCHE : CHAT & CONVERSATION -->
         <section id="chatSection" class="flex-1 flex flex-col min-w-0 h-full border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
+            <!-- BANDEAU DOSSIER CLIENT EN COURS -->
+            <div class="px-4 py-2 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 shrink-0 shadow-xs z-10">
+                <div class="flex items-center gap-2 flex-1 min-w-0">
+                    <span class="w-6 h-6 rounded-lg bg-[#F4920D]/10 text-[#F4920D] flex items-center justify-center text-xs font-bold shrink-0">
+                        <i class="fa-solid fa-briefcase"></i>
+                    </span>
+                    <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 shrink-0">Client :</span>
+                    <div class="relative flex-1 max-w-xs sm:max-w-sm">
+                        <input type="text" id="clientNameInput" placeholder="Nom de l'annonceur (ex: Brico Gembloux)..." 
+                            class="w-full px-2.5 py-1 text-xs font-bold text-slate-800 dark:text-slate-100 bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#F4920D] transition"
+                            onchange="onClientNameInputChanged(this.value)">
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 shrink-0 text-xs">
+                    <button onclick="startNewProposition()" title="Démarrer une nouvelle proposition vierge" class="px-2.5 py-1 rounded-lg text-slate-600 dark:text-slate-300 hover:text-[#F4920D] dark:hover:text-[#F4920D] bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition flex items-center gap-1.5 font-medium">
+                        <i class="fa-solid fa-plus text-[10px]"></i> <span class="hidden sm:inline">Nouveau dossier</span>
+                    </button>
+                </div>
+            </div>
+
             <!-- Zone des messages de discussion -->
             <div id="chatMessages" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-5 w-full">
                 <!-- Message initial de bienvenue -->
@@ -852,16 +925,34 @@ class MmoveHandler(BaseHTTPRequestHandler):
             sendBtn.disabled = true;
 
             try {
+                const clientInput = document.getElementById('clientNameInput');
+                const clientVal = clientInput ? clientInput.value.trim() : '';
+
                 const res = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: msg, history: history })
+                    body: JSON.stringify({
+                        message: msg,
+                        history: history,
+                        client_name: clientVal,
+                        salesperson_id: currentUser ? currentUser.id : 'DR'
+                    })
                 });
                 const data = await res.json();
                 removeLoading(loadingId);
 
+                // Synchronisation du champ client avec l'extraction IA
+                if (data.client_name && clientInput) {
+                    clientInput.value = data.client_name;
+                }
+
                 // Mise à jour de la cartographie latérale en temps réel
                 updateSideMap(data.campaign_plan, data.panels);
+
+                // Si une proposition a été générée, recharger les dossiers
+                if (data.campaign_plan) {
+                    loadDossiers();
+                }
 
                 appendMessage('model', data.text, data.panels, data.timing, data.campaign_plan);
                 history.push({ role: 'model', text: data.text });
@@ -1585,9 +1676,315 @@ class MmoveHandler(BaseHTTPRequestHandler):
                 card.classList.add('ring-2', 'ring-[#F4920D]', 'bg-amber-50/50', 'dark:bg-amber-950/20');
                 card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
+        // ==========================================
+        // GESTION DU PROFIL COMMERCIAL & DES DOSSIERS
+        // ==========================================
+        let currentUser = {
+            id: "DR",
+            initials: "DR",
+            name: "David Rossomme",
+            phone: "+32 477 38 40 20",
+            email: "david@mediasee.be",
+            is_admin: false
+        };
+        let salespeopleList = [];
+        let allDossiers = [];
+
+        async function initUserProfile() {
+            try {
+                const res = await fetch('/api/salespeople');
+                if (res.ok) {
+                    salespeopleList = await res.json();
+                }
+            } catch (e) {
+                console.warn("Échec chargement commerciaux:", e);
+            }
+
+            const savedId = localStorage.getItem('mmove_salesperson_id');
+            if (savedId && salespeopleList.length > 0) {
+                const found = salespeopleList.find(s => s.id === savedId || s.initials === savedId);
+                if (found) currentUser = found;
+            } else if (salespeopleList.length > 0) {
+                const defaultSp = salespeopleList.find(s => s.initials === 'DR') || salespeopleList[0];
+                currentUser = defaultSp;
+                localStorage.setItem('mmove_salesperson_id', currentUser.id);
+            }
+
+            updateProfileUI();
+            loadDossiers();
         }
 
-        window.addEventListener('DOMContentLoaded', initLeafletMap);
+        function updateProfileUI() {
+            const avatar = document.getElementById('profileAvatar');
+            const name = document.getElementById('profileName');
+            const roleBadge = document.getElementById('profileRoleBadge');
+            const drawerTitle = document.getElementById('dossiersDrawerTitle');
+            const drawerSub = document.getElementById('dossiersDrawerSubtitle');
+            const adminFilterContainer = document.getElementById('adminCommercialFilterContainer');
+            const adminSelect = document.getElementById('adminSalespersonSelect');
+
+            if (avatar) avatar.textContent = currentUser.initials;
+            if (name) name.textContent = currentUser.name;
+
+            if (currentUser.is_admin) {
+                if (roleBadge) roleBadge.classList.remove('hidden');
+                if (drawerTitle) drawerTitle.textContent = "Dossiers Commerciaux (Vue Superviseur)";
+                if (drawerSub) drawerSub.textContent = "Vue globale sur toutes les propositions de l'équipe";
+                if (adminFilterContainer) adminFilterContainer.classList.remove('hidden');
+
+                if (adminSelect) {
+                    adminSelect.innerHTML = '<option value="ALL">👥 Tous les commerciaux</option>';
+                    salespeopleList.forEach(sp => {
+                        const opt = document.createElement('option');
+                        opt.value = sp.initials;
+                        opt.textContent = `${sp.name} (${sp.initials})`;
+                        adminSelect.appendChild(opt);
+                    });
+                }
+            } else {
+                if (roleBadge) roleBadge.classList.add('hidden');
+                if (drawerTitle) drawerTitle.textContent = "Mes Dossiers Commerciaux";
+                if (drawerSub) drawerSub.textContent = `Propositions de ${currentUser.name}`;
+                if (adminFilterContainer) adminFilterContainer.classList.add('hidden');
+            }
+
+            const notice = document.getElementById('currentProfileNotice');
+            if (notice) notice.textContent = `Connecté : ${currentUser.name} (${currentUser.initials})`;
+        }
+
+        function openProfileModal() {
+            const grid = document.getElementById('salespeopleGrid');
+            if (!grid) return;
+
+            grid.innerHTML = '';
+            salespeopleList.forEach(sp => {
+                const isSelected = sp.initials === currentUser.initials;
+                const card = document.createElement('div');
+                card.className = `p-3.5 rounded-2xl border cursor-pointer transition flex items-center justify-between gap-3 ${
+                    isSelected 
+                        ? 'border-[#F4920D] bg-amber-50/60 dark:bg-amber-950/30 ring-1 ring-[#F4920D]' 
+                        : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`;
+                card.onclick = () => switchUserProfile(sp.initials);
+
+                const initialsBg = isSelected ? 'bg-[#F4920D] text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200';
+                card.innerHTML = `
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="w-10 h-10 rounded-xl ${initialsBg} flex items-center justify-center font-black text-sm shrink-0 shadow-xs">
+                            ${sp.initials}
+                        </div>
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-1.5">
+                                <h4 class="text-xs font-bold text-slate-900 dark:text-white truncate">${sp.name}</h4>
+                                ${sp.is_admin ? '<span class="text-[9px] px-1.5 py-0.2 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 font-extrabold uppercase border border-purple-500/20">Admin</span>' : ''}
+                            </div>
+                            <p class="text-[10px] text-slate-500 dark:text-slate-400 truncate">${sp.phone || sp.email || 'Commercial M Move'}</p>
+                        </div>
+                    </div>
+                    ${isSelected ? '<i class="fa-solid fa-circle-check text-[#F4920D] text-base shrink-0"></i>' : '<i class="fa-solid fa-chevron-right text-slate-300 dark:text-slate-600 text-xs shrink-0"></i>'}
+                `;
+                grid.appendChild(card);
+            });
+
+            const modal = document.getElementById('profileModal');
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        function closeProfileModal() {
+            const modal = document.getElementById('profileModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function switchUserProfile(initials) {
+            const found = salespeopleList.find(s => s.initials === initials || s.id === initials);
+            if (!found) return;
+
+            currentUser = found;
+            localStorage.setItem('mmove_salesperson_id', currentUser.id);
+            updateProfileUI();
+            closeProfileModal();
+            loadDossiers();
+            showLogsToast(`✓ Profil actif : ${currentUser.name} (${currentUser.initials})`);
+        }
+
+        // --- GESTION DU TIROIR DES DOSSIERS ---
+        function toggleDossiersDrawer() {
+            const drawer = document.getElementById('dossiersDrawer');
+            const backdrop = document.getElementById('dossiersDrawerBackdrop');
+            if (!drawer) return;
+
+            const isClosed = drawer.classList.contains('-translate-x-full');
+            if (isClosed) {
+                drawer.classList.remove('-translate-x-full');
+                if (backdrop) {
+                    backdrop.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+                    backdrop.classList.add('opacity-100');
+                }
+                loadDossiers();
+            } else {
+                closeDossiersDrawer();
+            }
+        }
+
+        function closeDossiersDrawer() {
+            const drawer = document.getElementById('dossiersDrawer');
+            const backdrop = document.getElementById('dossiersDrawerBackdrop');
+            if (drawer) drawer.classList.add('-translate-x-full');
+            if (backdrop) {
+                backdrop.classList.remove('opacity-100');
+                backdrop.classList.add('opacity-0', 'pointer-events-none');
+                setTimeout(() => backdrop.classList.add('hidden'), 300);
+            }
+        }
+
+        async function loadDossiers() {
+            try {
+                const adminSelect = document.getElementById('adminSalespersonSelect');
+                const filterVal = (currentUser.is_admin && adminSelect) ? adminSelect.value : '';
+                const url = `/api/dossiers?user_id=${encodeURIComponent(currentUser.id)}&filter=${encodeURIComponent(filterVal)}`;
+                const res = await fetch(url);
+                if (res.ok) {
+                    allDossiers = await res.json();
+                    const badge = document.getElementById('dossiersCountBadge');
+                    if (badge) badge.textContent = allDossiers.length;
+                    filterDossiersList();
+                }
+            } catch (e) {
+                console.warn("Erreur chargement dossiers:", e);
+            }
+        }
+
+        function onAdminFilterSalespersonChanged(val) {
+            loadDossiers();
+        }
+
+        function filterDossiersList() {
+            const searchInput = document.getElementById('dossierSearchInput');
+            const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
+            const container = document.getElementById('dossiersListContainer');
+            if (!container) return;
+
+            const filtered = allDossiers.filter(d => {
+                const client = (d.client_name || '').toLowerCase();
+                const loc = (d.location || '').toLowerCase();
+                const sp = (d.salesperson_name || '').toLowerCase();
+                const periods = (d.periods || []).join(' ').toLowerCase();
+                return client.includes(query) || loc.includes(query) || sp.includes(query) || periods.includes(query);
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-slate-400 text-xs">
+                        <i class="fa-solid fa-folder-open text-2xl mb-2 text-slate-300 dark:text-slate-600"></i>
+                        <p>${query ? 'Aucun dossier ne correspond à votre recherche.' : 'Aucun dossier enregistré.'}</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = '';
+            filtered.forEach(d => {
+                const card = document.createElement('div');
+                card.className = "p-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 hover:border-[#F4920D]/40 transition space-y-2";
+                
+                const periodsBadges = (d.periods || []).map(p => 
+                    `<span class="px-1.5 py-0.5 rounded bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 text-[10px] font-semibold border border-slate-200 dark:border-slate-700">${p}</span>`
+                ).join(' ');
+
+                card.innerHTML = `
+                    <div class="flex items-start justify-between gap-2">
+                        <div>
+                            <h4 class="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                                <i class="fa-solid fa-file-lines text-[#F4920D]"></i> ${d.client_name || 'Client Partenaire'}
+                            </h4>
+                            <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                <b>${d.location || 'Wallonie'}</b> · ${d.faces_count || 0} faces · ~${Number(d.total_ots || 0).toLocaleString('fr-FR')} OTS
+                            </p>
+                        </div>
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 shrink-0">
+                            ${d.salesperson_initials || ''}
+                        </span>
+                    </div>
+
+                    <div class="flex items-center gap-1 flex-wrap">
+                        ${periodsBadges}
+                    </div>
+
+                    <div class="pt-1.5 border-t border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-2 text-[11px]">
+                        <span class="text-[10px] text-slate-400">${d.created_at ? d.created_at.slice(0, 16) : ''}</span>
+                        <div class="flex items-center gap-1.5">
+                            ${d.pdf_url ? `
+                                <a href="${d.pdf_url}" target="_blank" class="px-2 py-1 rounded-lg bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-semibold transition flex items-center gap-1">
+                                    <i class="fa-solid fa-file-pdf text-red-500"></i> PDF
+                                </a>
+                            ` : ''}
+                            <button onclick="reloadDossier('${d.id}')" class="px-2.5 py-1 rounded-lg bg-[#F4920D] hover:bg-[#FF5B34] text-white font-bold transition flex items-center gap-1 shadow-xs">
+                                <i class="fa-solid fa-arrow-rotate-left text-[10px]"></i> Recharger
+                            </button>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        async function reloadDossier(dossierId) {
+            try {
+                const res = await fetch(`/api/dossier?id=${encodeURIComponent(dossierId)}&user_id=${encodeURIComponent(currentUser.id)}`);
+                if (!res.ok) {
+                    showLogsToast("⚠️ Impossible de charger ce dossier");
+                    return;
+                }
+                const dossier = await res.json();
+                
+                // Mettre à jour le champ client
+                const clientInput = document.getElementById('clientNameInput');
+                if (clientInput) clientInput.value = dossier.client_name || '';
+
+                // Mettre à jour la carte et la colonne latérale
+                updateSideMap(dossier.campaign_plan, dossier.panels);
+
+                // Afficher un message de confirmation dans le chat avec le PDF
+                const textMsg = `📁 **Dossier rechargé : ${dossier.client_name}**\n\n- **Conseiller :** ${dossier.salesperson_name} (${dossier.salesperson_initials})\n- **Dispositif :** ${dossier.faces_count} faces à ${dossier.location}\n- **Périodes :** ${(dossier.periods || []).join(', ')}\n- **Audience estimée :** ~${Number(dossier.total_ots || 0).toLocaleString('fr-FR')} OTS`;
+                appendMessage('model', textMsg, dossier.panels, {}, dossier.campaign_plan);
+                history.push({ role: 'model', text: textMsg });
+
+                closeDossiersDrawer();
+                showLogsToast(`✓ Dossier ${dossier.client_name} chargé sur la carte !`);
+            } catch (e) {
+                console.error("Erreur rechargement dossier:", e);
+                showLogsToast("⚠️ Erreur lors du chargement du dossier");
+            }
+        }
+
+        function startNewProposition() {
+            const clientInput = document.getElementById('clientNameInput');
+            if (clientInput) clientInput.value = '';
+
+            const chatMessages = document.getElementById('chatMessages');
+            const welcomeMsg = chatMessages.firstElementChild;
+            chatMessages.innerHTML = '';
+            if (welcomeMsg) chatMessages.appendChild(welcomeMsg);
+            history = [];
+            detailedLogs = [];
+
+            // Réinitialiser la carte vers le réseau global
+            if (typeof initLeafletMap === 'function') {
+                initLeafletMap();
+            }
+            showLogsToast("✓ Nouvelle proposition vierge prête");
+        }
+
+        function onClientNameInputChanged(val) {
+            if (val.trim()) {
+                showLogsToast(`✓ Annonceur défini : ${val.trim()}`);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initLeafletMap();
+            initUserProfile();
+        });
     </script>
 
     <!-- TOAST NOTIFICATION LOGS -->
@@ -1639,6 +2036,83 @@ class MmoveHandler(BaseHTTPRequestHandler):
             </div>
         </div>
     </div>
+
+    <!-- TIROIR LATÉRAL DOSSIERS & HISTORIQUE -->
+    <div id="dossiersDrawerBackdrop" onclick="closeDossiersDrawer()" class="fixed inset-0 z-40 hidden bg-black/50 backdrop-blur-xs transition-opacity duration-300 opacity-0 pointer-events-none"></div>
+    <aside id="dossiersDrawer" class="fixed top-0 left-0 bottom-0 z-50 w-full sm:w-[480px] bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col transform -translate-x-full transition-transform duration-300 ease-in-out">
+        <!-- Header du Tiroir -->
+        <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60">
+            <div class="flex items-center gap-2.5">
+                <span class="w-8 h-8 rounded-xl bg-[#F4920D]/10 text-[#F4920D] flex items-center justify-center text-sm font-bold border border-[#F4920D]/20">
+                    <i class="fa-solid fa-folder-open"></i>
+                </span>
+                <div>
+                    <h2 id="dossiersDrawerTitle" class="text-sm font-bold text-slate-900 dark:text-white">Dossiers Commerciaux</h2>
+                    <p id="dossiersDrawerSubtitle" class="text-[11px] text-slate-500 dark:text-slate-400">Historique et propositions sauvegardées</p>
+                </div>
+            </div>
+            <button onclick="closeDossiersDrawer()" class="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                <i class="fa-solid fa-xmark text-sm"></i>
+            </button>
+        </div>
+
+        <!-- Filtres (Recherche & Filtre Commercial pour Admin) -->
+        <div class="p-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-2">
+            <!-- Recherche rapide -->
+            <div class="relative">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-400"></i>
+                <input type="text" id="dossierSearchInput" placeholder="Rechercher un client, ville, période..." oninput="filterDossiersList()"
+                    class="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#F4920D] text-slate-800 dark:text-slate-200">
+            </div>
+
+            <!-- Filtre commercial (Visible uniquement si Admin) -->
+            <div id="adminCommercialFilterContainer" class="hidden flex items-center gap-2 pt-1">
+                <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400 shrink-0">Conseiller :</span>
+                <select id="adminSalespersonSelect" onchange="onAdminFilterSalespersonChanged(this.value)"
+                    class="flex-1 py-1 px-2 text-xs font-semibold bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#F4920D] text-slate-800 dark:text-slate-200">
+                    <option value="ALL">👥 Tous les commerciaux</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Liste des Dossiers -->
+        <div id="dossiersListContainer" class="flex-1 overflow-y-auto p-3 space-y-2.5">
+            <div class="text-center py-8 text-slate-400 text-xs">
+                <i class="fa-solid fa-folder-open text-2xl mb-2 text-slate-300 dark:text-slate-600"></i>
+                <p>Aucun dossier pour le moment.</p>
+                <p class="text-[11px] text-slate-400 mt-1">Générez une première proposition dans le chat !</p>
+            </div>
+        </div>
+    </aside>
+
+    <!-- MODAL CHOIX DU COMMERCIAL / SWITCHER -->
+    <div id="profileModal" onclick="if(event.target === this) closeProfileModal()" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden animate-in fade-in duration-200">
+            <div class="p-5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between">
+                <div>
+                    <h3 class="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                        <i class="fa-solid fa-users text-[#F4920D]"></i> Espace Commercial M Move
+                    </h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Sélectionnez votre profil pour personnaliser vos propositions et PDF</p>
+                </div>
+                <button onclick="closeProfileModal()" class="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-200/50 dark:hover:bg-slate-700/50">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+
+            <!-- Grille des Commerciaux -->
+            <div id="salespeopleGrid" class="p-5 grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto">
+                <!-- Rempli dynamiquement -->
+            </div>
+
+            <div class="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between text-xs text-slate-500">
+                <span class="flex items-center gap-1.5">
+                    <i class="fa-solid fa-shield-halved text-[#F4920D]"></i> Coordonnées synchronisées Google Sheets
+                </span>
+                <span id="currentProfileNotice" class="font-bold text-slate-700 dark:text-slate-300"></span>
+            </div>
+        </div>
+    </div>
 </body>
 </html>"""
             self.wfile.write(html_content.encode("utf-8"))
@@ -1661,7 +2135,15 @@ class MmoveHandler(BaseHTTPRequestHandler):
                     self.wfile.write(b'{"error": "Message required"}')
                     return
 
-                res = coordinator.process_message(user_msg, conversation_history=history)
+                client_name = data.get("client_name", "")
+                salesperson_id = data.get("salesperson_id", "")
+
+                res = coordinator.process_message(
+                    user_msg,
+                    conversation_history=history,
+                    client_name=client_name,
+                    salesperson_id=salesperson_id
+                )
                 self._set_headers(200)
                 self.wfile.write(json.dumps(res, ensure_ascii=False).encode("utf-8"))
             except Exception as e:

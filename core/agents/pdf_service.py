@@ -25,12 +25,18 @@ class CampaignPdfService:
         self.map_service = MapGeneratorService()
         self.logo_path = os.path.join(BASE_DIR, "core", "template", "logo-mmove.png")
 
-    def generate_campaign_pdf(self, campaign_plan: Dict[str, Any], client_name: str = "Partenaire") -> str:
+    def generate_campaign_pdf(
+        self,
+        campaign_plan: Dict[str, Any],
+        client_name: str = "Partenaire",
+        salesperson: Optional[Dict[str, Any]] = None
+    ) -> str:
         """
         Construit le PDF A4 Paysage pour le plan média :
         - 1 colonne texte à gauche
         - La carte en vis-à-vis dans la colonne de droite
         - Un saut de page entre chaque mois
+        - Coordonnées personnalisées du commercial connecté
         """
         summary = campaign_plan.get("summary", {})
         months = campaign_plan.get("months", [])
@@ -40,10 +46,16 @@ class CampaignPdfService:
         total_ots = summary.get("total_cumulative_ots", 0)
         avg_veh = summary.get("avg_veh_per_day", 0)
 
-        # Hash pour mise en cache (dépend du client pour régénération immédiate)
+        # Extraction des coordonnées du commercial
+        sp_initials = (salesperson.get("initials") if salesperson else "DR") or "DR"
+        sp_name = (salesperson.get("name") if salesperson else "David Rossomme") or "David Rossomme"
+        sp_phone = (salesperson.get("phone") if salesperson else "+32 477 38 40 20") or ""
+        sp_email = (salesperson.get("email") if salesperson else "david@mediasee.be") or ""
+
+        # Hash pour mise en cache (dépend du client et du commercial pour régénération immédiate)
         client_slug = "".join(c if c.isalnum() else "_" for c in client_name.lower())[:15]
-        plan_hash = hashlib.md5(f"v4_{client_name}_{str(campaign_plan.get('periods', []))}".encode("utf-8")).hexdigest()[:10]
-        pdf_filename = f"plan_media_mmove_{client_slug}_{loc.lower()}_{plan_hash}.pdf"
+        plan_hash = hashlib.md5(f"v6_{client_name}_{sp_initials}_{str(campaign_plan.get('periods', []))}".encode("utf-8")).hexdigest()[:10]
+        pdf_filename = f"plan_media_mmove_{client_slug}_{loc.lower()}_{sp_initials.lower()}_{plan_hash}.pdf"
         pdf_path = os.path.join(self.pdf_dir, pdf_filename)
 
         doc = SimpleDocTemplate(
@@ -206,9 +218,9 @@ class CampaignPdfService:
             header_right_block = [
                 Paragraph(f"<b>Client :</b> <font color='#F4920D'><b>{client_name}</b></font> &nbsp;·&nbsp; <b>Bassin :</b> {loc}", style_header_meta_client),
                 Spacer(1, 1),
-                Paragraph(f"<b>Date d'émission :</b> {date_str} &nbsp;·&nbsp; <b>Page {page_idx}/{total_pages}</b>", style_header_meta_date),
+                Paragraph(f"<b>Conseiller :</b> <b>{sp_name}</b> ({sp_initials}) &nbsp;·&nbsp; <b>Émis le :</b> {date_str}", style_header_meta_date),
                 Spacer(1, 1),
-                Paragraph("*Disponibilités indicatives sous réserve d'options en cours", style_header_meta_notice)
+                Paragraph(f"Page {page_idx}/{total_pages} &nbsp;·&nbsp; *Disponibilités indicatives sous réserve d'options", style_header_meta_notice)
             ]
 
             header_table_data = [
@@ -348,17 +360,24 @@ class CampaignPdfService:
             ]))
             story.append(two_cols_table)
 
-            # 5. Pied de page technique & réassurance commerciale
+            # 5. Pied de page technique & contact commercial dédié
             story.append(Spacer(1, 6))
             story.append(HRFlowable(width="100%", thickness=0.5, color=c_border, spaceBefore=2, spaceAfter=4))
+            sp_contact_parts = []
+            if sp_phone:
+                sp_contact_parts.append(f"Tél : {sp_phone}")
+            if sp_email:
+                sp_contact_parts.append(sp_email)
+            sp_contact_str = " · ".join(sp_contact_parts) if sp_contact_parts else "info@mediasee.be"
+
             footer_data = [
                 [
-                    Paragraph("<b>M MOVE CONSEIL</b> · Affichage Mobile & Remorques Publicitaires 8m² en Wallonie", style_tech),
+                    Paragraph("<b>M MOVE CONSEIL</b> · Affichage Mobile & Remorques 8m²", style_tech),
                     Paragraph("<b>Prestation Réseau :</b> Emplacements stratégiques 8m² · Tournée de placement & retrait · Assurance RC", style_tech),
-                    Paragraph("<b>Contact :</b> mmove@mediasee.be · www.remorquepublicitaire.be", style_tech),
+                    Paragraph(f"<b>Votre contact :</b> {sp_name} · {sp_contact_str}", style_tech),
                 ]
             ]
-            footer_table = Table(footer_data, colWidths=[250, 370, 168])
+            footer_table = Table(footer_data, colWidths=[205, 325, 258])
             footer_table.setStyle(TableStyle([
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
                 ("TOPPADDING", (0, 0), (-1, -1), 1),

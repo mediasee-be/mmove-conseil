@@ -53,6 +53,68 @@ class MmoveHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(sync_info, ensure_ascii=False).encode("utf-8"))
             return
 
+        if self.path == "/api/network-trailers":
+            self._set_headers(200)
+            network = []
+            trailers_iterable = coordinator.engine.trailers.values() if isinstance(coordinator.engine.trailers, dict) else coordinator.engine.trailers
+            for t in trailers_iterable:
+                if t.get("lat") and t.get("lng"):
+                    network.append({
+                        "id": str(t.get("id", "")),
+                        "ville": t.get("ville", ""),
+                        "axe_routier": t.get("axe_routier", ""),
+                        "lat": t.get("lat"),
+                        "lng": t.get("lng"),
+                        "frequentation": t.get("frequentation_jour"),
+                        "photo": t.get("photo_in") or t.get("photo_out") or t.get("photo_url", ""),
+                        "lien": t.get("lien", "")
+                    })
+            self.wfile.write(json.dumps(network, ensure_ascii=False).encode("utf-8"))
+            return
+
+        # Cartes géographiques haute définition générées pour les campagnes
+        if self.path.startswith("/api/map/"):
+            filename = os.path.basename(self.path.split("?")[0])
+            map_path = os.path.join("data", "maps", filename)
+            if os.path.exists(map_path) and os.path.isfile(map_path):
+                self.send_response(200)
+                self.send_header("Content-Type", "image/png")
+                self.send_header("Cache-Control", "public, max-age=86400")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                with open(map_path, "rb") as f:
+                    self.wfile.write(f.read())
+                return
+            else:
+                self._set_headers(404, "text/plain")
+                self.wfile.write(b"Carte non trouvee")
+                return
+
+        # Téléchargement du Plan Média PDF (A4 Paysage)
+        if self.path.startswith("/api/download-plan-pdf") or self.path.startswith("/api/pdf/"):
+            import urllib.parse
+            parsed = urllib.parse.urlparse(self.path)
+            query_params = urllib.parse.parse_qs(parsed.query)
+            filename = query_params.get("file", [None])[0]
+            if not filename:
+                filename = os.path.basename(parsed.path)
+            
+            clean_filename = os.path.basename(filename)
+            pdf_path = os.path.join("data", "pdf", clean_filename)
+            if os.path.exists(pdf_path) and os.path.isfile(pdf_path):
+                self.send_response(200)
+                self.send_header("Content-Type", "application/pdf")
+                self.send_header("Content-Disposition", f'inline; filename="{clean_filename}"')
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                with open(pdf_path, "rb") as f:
+                    self.wfile.write(f.read())
+                return
+            else:
+                self._set_headers(404, "text/plain")
+                self.wfile.write(b"Fichier PDF non trouve")
+                return
+
         # Fichiers statiques (images, logos, avatars)
         if self.path.startswith("/static/"):
             rel_path = self.path.lstrip("/")
@@ -136,12 +198,88 @@ class MmoveHandler(BaseHTTPRequestHandler):
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Marked.js for Markdown Rendering -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Leaflet CSS & JS for Interactive Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <style>
         body {
             color: #666666;
         }
         .dark body {
             color: #cbd5e1;
+        }
+        .leaflet-div-icon {
+            background: transparent;
+            border: none;
+        }
+        .map-pin-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transform: translate(-50%, -100%);
+            cursor: pointer;
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .map-pin-container:hover {
+            transform: translate(-50%, -115%) scale(1.1);
+            z-index: 9999 !important;
+        }
+        .map-pin-circle {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #F4920D 0%, #FF5B34 100%);
+            color: white;
+            font-weight: 800;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid white;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+        }
+        .map-pin-badge {
+            background: #1E293B;
+            color: #F8FAFC;
+            font-size: 9px;
+            font-weight: 700;
+            padding: 1px 5px;
+            border-radius: 4px;
+            margin-top: -3px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            white-space: nowrap;
+        }
+        .map-dot-network {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: #F4920D;
+            border: 1.5px solid white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            cursor: pointer;
+            opacity: 0.65;
+            transition: all 0.15s ease;
+        }
+        .map-dot-network:hover {
+            transform: scale(1.6);
+            opacity: 1;
+            background: #FF5B34;
+        }
+        .dark .leaflet-tile {
+            filter: brightness(0.7) invert(1) contrast(1.1) hue-rotate(200deg) saturate(0.35);
+        }
+        .leaflet-popup-content-wrapper {
+            border-radius: 16px;
+            padding: 4px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2);
+        }
+        .dark .leaflet-popup-content-wrapper {
+            background: #0f172a;
+            color: #f1f5f9;
+            border: 1px solid #334155;
+        }
+        .dark .leaflet-popup-tip {
+            background: #0f172a;
         }
         .logo-text {
             fill: #4f4f50;
@@ -208,6 +346,23 @@ class MmoveHandler(BaseHTTPRequestHandler):
         .dark .markdown-body a:hover {
             color: #FF5B34;
         }
+        /* Bouton PDF dans le chat et volet : Texte blanc impératif */
+        .markdown-body a.btn-pdf,
+        .dark .markdown-body a.btn-pdf,
+        a.btn-pdf,
+        a.btn-pdf *,
+        .btn-pdf span,
+        .btn-pdf i {
+            color: #ffffff !important;
+            text-decoration: none !important;
+        }
+        .markdown-body a.btn-pdf:hover,
+        .dark .markdown-body a.btn-pdf:hover,
+        a.btn-pdf:hover {
+            color: #ffffff !important;
+            text-decoration: none !important;
+            filter: brightness(1.1);
+        }
         .markdown-body hr {
             border-color: #e2e8f0;
             margin: 1rem 0;
@@ -250,8 +405,20 @@ class MmoveHandler(BaseHTTPRequestHandler):
         </div>
 
         <div class="flex items-center space-x-2">
+            <!-- Mobile Toggle Chat / Carte -->
+            <div class="flex lg:hidden items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-0.5 border border-slate-200 dark:border-slate-700">
+                <button type="button" id="viewChatBtn" onclick="switchMobileView('chat')" class="px-2.5 py-1 text-xs font-bold rounded-lg bg-white dark:bg-slate-900 text-[#F4920D] shadow-xs transition">
+                    <i class="fa-solid fa-comments mr-1"></i>Chat
+                </button>
+                <button type="button" id="viewMapBtn" onclick="switchMobileView('map')" class="px-2.5 py-1 text-xs font-bold rounded-lg text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition flex items-center gap-1">
+                    <i class="fa-solid fa-map-location-dot"></i>
+                    <span>Carte</span>
+                    <span id="mobilePinBadge" class="hidden px-1.5 py-0.2 rounded-full text-[10px] bg-[#F4920D] text-white font-extrabold">0</span>
+                </button>
+            </div>
+
             <!-- Sync Live Badge -->
-            <div id="statsBadge" class="hidden sm:flex text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-xl text-[#666] dark:text-slate-300 items-center space-x-2 shadow-inner">
+            <div id="statsBadge" class="hidden xl:flex text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-xl text-[#666] dark:text-slate-300 items-center space-x-2 shadow-inner">
                 <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 <span>133 panneaux (266 faces)</span>
             </div>
@@ -269,58 +436,138 @@ class MmoveHandler(BaseHTTPRequestHandler):
         </div>
     </header>
 
-    <!-- CHAT MESSAGES AREA -->
-    <div id="chatMessages" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-5 max-w-5xl mx-auto w-full">
-        <!-- Message initial de bienvenue -->
-        <div class="flex items-start space-x-3">
-            <div class="w-9 h-9 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xs shrink-0 mt-0.5">
-                <img src="/static/bot-avatar.png" alt="Conseiller M Move" class="w-full h-full object-cover object-top">
-            </div>
-            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl rounded-tl-sm p-5 max-w-3xl text-sm leading-relaxed shadow-sm text-[#666] dark:text-slate-200">
-                <p class="font-bold text-[#F4920D] mb-2 flex items-center gap-1.5">
-                    <i class="fa-solid fa-sparkles text-[#FF5B34]"></i> Conseiller Commercial M Move
-                </p>
-                Bonjour ! Je suis votre conseiller expert pour le réseau de panneaux publicitaires 8m² M Move en Wallonie (133 panneaux, 266 faces stratégiques).<br><br>
-                Quelle zone, quel axe routier ou quelle période souhaitez-vous couvrir pour votre prochaine campagne ?
-            </div>
-        </div>
-    </div>
-
-    <!-- BOTTOM INPUT BAR -->
-    <div class="p-3 md:p-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 z-10 shrink-0">
-        <div class="max-w-5xl mx-auto space-y-2.5">
-            <!-- Suggestions rapides en 1 clic -->
-            <div class="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
-                <span class="flex items-center gap-1 text-[#666] dark:text-slate-400 shrink-0 font-medium mr-1">
-                    <i class="fa-solid fa-wand-magic-sparkles text-[#F4920D]"></i> Idées :
-                </span>
-                <button type="button" onclick="sendSuggestion('Magasin de bricolage près de Namur en mai 2026')" class="shrink-0 px-3 py-1 rounded-full bg-slate-100 hover:bg-[#F4920D]/10 dark:bg-slate-800 dark:hover:bg-[#F4920D]/10 text-[#666] dark:text-slate-200 hover:text-[#F4920D] dark:hover:text-[#F4920D] hover:border-[#F4920D]/40 transition border border-slate-200 dark:border-slate-700">
-                    📍 Bricolage près de Namur
-                </button>
-                <button type="button" onclick="sendSuggestion('Concessionnaire auto sur la N4 ou E411')" class="shrink-0 px-3 py-1 rounded-full bg-slate-100 hover:bg-[#F4920D]/10 dark:bg-slate-800 dark:hover:bg-[#F4920D]/10 text-[#666] dark:text-slate-200 hover:text-[#F4920D] dark:hover:text-[#F4920D] hover:border-[#F4920D]/40 transition border border-slate-200 dark:border-slate-700">
-                    🚗 Concession auto sur N4 / E411
-                </button>
-                <button type="button" onclick="sendSuggestion('Disponibilités panneaux à Wierde et Naninne')" class="shrink-0 px-3 py-1 rounded-full bg-slate-100 hover:bg-[#F4920D]/10 dark:bg-slate-800 dark:hover:bg-[#F4920D]/10 text-[#666] dark:text-slate-200 hover:text-[#F4920D] dark:hover:text-[#F4920D] hover:border-[#F4920D]/40 transition border border-slate-200 dark:border-slate-700">
-                    📅 Disponibilités Wierde & Naninne
-                </button>
-                <button type="button" onclick="sendSuggestion('Quand est libre le panneau #114 ?')" class="shrink-0 px-3 py-1 rounded-full bg-slate-100 hover:bg-[#F4920D]/10 dark:bg-slate-800 dark:hover:bg-[#F4920D]/10 text-[#666] dark:text-slate-200 hover:text-[#F4920D] dark:hover:text-[#F4920D] hover:border-[#F4920D]/40 transition border border-slate-200 dark:border-slate-700">
-                    🔍 Dispo panneau #114
-                </button>
-                <button type="button" onclick="sendSuggestion('5 règles d\'or pour un visuel percutant 8m²')" class="shrink-0 px-3 py-1 rounded-full bg-slate-100 hover:bg-[#F4920D]/10 dark:bg-slate-800 dark:hover:bg-[#F4920D]/10 text-[#666] dark:text-slate-200 hover:text-[#F4920D] dark:hover:text-[#F4920D] hover:border-[#F4920D]/40 transition border border-slate-200 dark:border-slate-700">
-                    💡 5 règles d'or visuel 8m²
-                </button>
+    <!-- MAIN TWO-PANEL WORKSPACE (Chat à gauche, Carte à droite) -->
+    <main class="flex-1 flex overflow-hidden relative">
+        <!-- COLONNE GAUCHE : CHAT & CONVERSATION -->
+        <section id="chatSection" class="flex-1 flex flex-col min-w-0 h-full border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
+            <!-- Zone des messages de discussion -->
+            <div id="chatMessages" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-5 w-full">
+                <!-- Message initial de bienvenue -->
+                <div class="flex items-start space-x-3">
+                    <div class="w-9 h-9 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xs shrink-0 mt-0.5">
+                        <img src="/static/bot-avatar.png" alt="Conseiller M Move" class="w-full h-full object-cover object-top">
+                    </div>
+                    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl rounded-tl-sm p-5 max-w-3xl text-sm leading-relaxed shadow-sm text-[#666] dark:text-slate-200">
+                        <p class="font-bold text-[#F4920D] mb-2 flex items-center gap-1.5">
+                            <i class="fa-solid fa-sparkles text-[#FF5B34]"></i> Conseiller Commercial M Move
+                        </p>
+                        Bonjour ! Je suis votre conseiller expert pour le réseau de panneaux publicitaires 8m² M Move en Wallonie (133 panneaux, 266 faces stratégiques).<br><br>
+                        Quelle zone, quel axe routier ou quelle période souhaitez-vous couvrir pour votre prochaine campagne ? La cartographie du dispositif s'actualise en direct à droite de votre écran.
+                    </div>
+                </div>
             </div>
 
-            <!-- Formulaire de saisie -->
-            <form id="chatForm" class="flex items-end space-x-2.5">
-                <textarea id="messageInput" rows="1" placeholder="Posez votre question (ex: Panneaux disponibles à Wavre en septembre)..." 
-                    class="flex-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#F4920D] focus:border-[#F4920D] text-slate-900 dark:text-white placeholder-slate-400 resize-none max-h-36 leading-normal" required></textarea>
-                <button type="submit" id="sendBtn" class="bg-gradient-to-r from-[#F4920D] to-[#FF5B34] hover:opacity-95 active:scale-95 text-white px-5 py-3 rounded-2xl font-semibold text-sm transition shadow-sm flex items-center justify-center shrink-0 disabled:opacity-50 disabled:cursor-not-allowed">
-                    <i class="fa-solid fa-paper-plane text-sm"></i>
-                </button>
-            </form>
-        </div>
-    </div>
+            <!-- Barre de saisie inférieure -->
+            <div class="p-3 md:p-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 z-10 shrink-0">
+                <div class="max-w-4xl mx-auto space-y-2.5">
+                    <!-- Suggestions rapides en 1 clic -->
+                    <div class="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
+                        <span class="flex items-center gap-1 text-[#666] dark:text-slate-400 shrink-0 font-medium mr-1">
+                            <i class="fa-solid fa-wand-magic-sparkles text-[#F4920D]"></i> Idées :
+                        </span>
+                        <button type="button" onclick="sendSuggestion('Campagne de 5 faces à Gembloux en Mars, Avril et Mai 2027')" class="shrink-0 px-3 py-1 rounded-full bg-slate-100 hover:bg-[#F4920D]/10 dark:bg-slate-800 dark:hover:bg-[#F4920D]/10 text-[#666] dark:text-slate-200 hover:text-[#F4920D] dark:hover:text-[#F4920D] hover:border-[#F4920D]/40 transition border border-slate-200 dark:border-slate-700">
+                            🎯 5 faces Gembloux 3 mois
+                        </button>
+                        <button type="button" onclick="sendSuggestion('Magasin de bricolage près de Namur en mai 2026')" class="shrink-0 px-3 py-1 rounded-full bg-slate-100 hover:bg-[#F4920D]/10 dark:bg-slate-800 dark:hover:bg-[#F4920D]/10 text-[#666] dark:text-slate-200 hover:text-[#F4920D] dark:hover:text-[#F4920D] hover:border-[#F4920D]/40 transition border border-slate-200 dark:border-slate-700">
+                            📍 Bricolage Namur
+                        </button>
+                        <button type="button" onclick="sendSuggestion('Concessionnaire auto sur la N4 ou E411')" class="shrink-0 px-3 py-1 rounded-full bg-slate-100 hover:bg-[#F4920D]/10 dark:bg-slate-800 dark:hover:bg-[#F4920D]/10 text-[#666] dark:text-slate-200 hover:text-[#F4920D] dark:hover:text-[#F4920D] hover:border-[#F4920D]/40 transition border border-slate-200 dark:border-slate-700">
+                            🚗 Concession auto N4 / E411
+                        </button>
+                        <button type="button" onclick="sendSuggestion('Disponibilités panneaux à Wierde et Naninne')" class="shrink-0 px-3 py-1 rounded-full bg-slate-100 hover:bg-[#F4920D]/10 dark:bg-slate-800 dark:hover:bg-[#F4920D]/10 text-[#666] dark:text-slate-200 hover:text-[#F4920D] dark:hover:text-[#F4920D] hover:border-[#F4920D]/40 transition border border-slate-200 dark:border-slate-700">
+                            📅 Wierde & Naninne
+                        </button>
+                    </div>
+
+                    <!-- Formulaire de saisie -->
+                    <form id="chatForm" class="flex items-end space-x-2.5">
+                        <textarea id="messageInput" rows="1" placeholder="Posez votre question (ex: Campagne 5 faces autour de Gembloux)..." 
+                            class="flex-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#F4920D] focus:border-[#F4920D] text-slate-900 dark:text-white placeholder-slate-400 resize-none max-h-36 leading-normal" required></textarea>
+                        <button type="submit" id="sendBtn" class="bg-gradient-to-r from-[#F4920D] to-[#FF5B34] hover:opacity-95 active:scale-95 text-white px-5 py-3 rounded-2xl font-semibold text-sm transition shadow-sm flex items-center justify-center shrink-0 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <i class="fa-solid fa-paper-plane text-sm"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- COLONNE DROITE : CARTOGRAPHIE & DISPOSITIF EN VIS-À-VIS -->
+        <aside id="mapSection" class="hidden lg:flex flex-col w-full lg:w-[460px] xl:w-[520px] 2xl:w-[580px] h-full bg-white dark:bg-slate-900 shrink-0 shadow-lg border-l border-slate-200 dark:border-slate-800 transition-all duration-300">
+            <!-- Header du volet cartographique -->
+            <div class="px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/90 backdrop-blur-sm flex items-center justify-between gap-2 shrink-0">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <span class="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-[#F4920D]/10 text-[#F4920D] shrink-0 border border-[#F4920D]/20">
+                        <i class="fa-solid fa-map-location-dot text-sm"></i>
+                    </span>
+                    <div class="min-w-0">
+                        <h3 id="sideMapTitle" class="text-xs font-bold text-slate-900 dark:text-white truncate">Cartographie du Dispositif</h3>
+                        <p id="sideMapSubtitle" class="text-[11px] text-slate-500 dark:text-slate-400 truncate">133 panneaux 8m² &middot; Réseau Wallonie</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-1.5 shrink-0">
+                    <!-- Toggle Interactif / Rendu HD -->
+                    <div id="mapModeToggle" class="hidden inline-flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700 text-[11px]">
+                        <button type="button" onclick="setMapDisplayMode('interactive')" id="btnModeInteractive" class="px-2 py-0.5 font-bold rounded-md bg-white dark:bg-slate-900 text-[#F4920D] shadow-2xs">Interactif</button>
+                        <button type="button" onclick="setMapDisplayMode('render')" id="btnModeRender" class="px-2 py-0.5 font-semibold rounded-md text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">Rendu HD</button>
+                    </div>
+
+                    <!-- Bouton Télécharger Plan Média PDF Direct -->
+                    <a id="sidePdfDownloadBtn" href="#" target="_blank" download class="btn-pdf hidden inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#F4920D] to-[#FF5B34] font-bold text-xs shadow-xs hover:brightness-110 active:scale-95 transition-all" style="color: #ffffff !important; text-decoration: none !important;">
+                        <i class="fa-solid fa-file-pdf" style="color: #ffffff !important;"></i>
+                        <span class="hidden sm:inline" style="color: #ffffff !important;">PDF</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Barre d'onglets mois par mois pour les campagnes -->
+            <div id="sideMonthTabsBar" class="hidden px-3.5 py-2 bg-slate-100/70 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700/80 flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
+                <!-- Généré dynamiquement en JS (Mars 2027, Avril 2027...) -->
+            </div>
+
+            <!-- Conteneur Carte (Leaflet interactif ou Rendu HD) -->
+            <div class="relative w-full h-[320px] xl:h-[360px] 2xl:h-[400px] shrink-0 bg-slate-100 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800">
+                <!-- Carte Leaflet interactive -->
+                <div id="leafletMap" class="w-full h-full z-0"></div>
+
+                <!-- Conteneur Rendu HD Statique -->
+                <div id="renderMapContainer" class="hidden absolute inset-0 bg-slate-900 flex items-center justify-center overflow-hidden z-10">
+                    <img id="renderMapImage" src="" alt="Plan Média HD" class="w-full h-full object-cover" />
+                </div>
+
+                <!-- Badge overlay dynamique sur la carte -->
+                <div id="mapOverlayBadge" class="absolute bottom-2.5 left-2.5 z-[400] bg-black/75 backdrop-blur-md text-white text-[11px] px-2.5 py-1 rounded-lg font-medium shadow-sm flex items-center gap-1.5 border border-white/10">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span id="mapOverlayText">Réseau M Move Wallonie</span>
+                </div>
+            </div>
+
+            <!-- Partie inférieure défilable : Métriques et Liste des Faces -->
+            <div class="flex-1 overflow-y-auto p-3.5 space-y-3 bg-slate-50/50 dark:bg-slate-900/50">
+                <!-- En-tête de la liste des faces (sobre et épuré) -->
+                <div id="sideListHeader" class="hidden flex items-center justify-between px-1 pb-1">
+                    <span id="sideListTitle" class="text-xs font-bold text-slate-700 dark:text-slate-300">Emplacements sélectionnés</span>
+                    <span id="sideListCount" class="px-2.5 py-0.5 rounded-full bg-[#F4920D]/10 text-[#F4920D] font-bold text-[11px] border border-[#F4920D]/20">5 faces</span>
+                </div>
+
+                <!-- Liste des faces du mois actif -->
+                <div id="sidePanelsList" class="space-y-2">
+                    <!-- Populated dynamically with interactive face cards -->
+                </div>
+
+                <!-- Boîte d'aide pour demander une modification directe -->
+                <div id="sideHelperBox" class="p-3 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 text-[11px] text-amber-900 dark:text-amber-200 flex items-start gap-2 shadow-2xs">
+                    <i class="fa-solid fa-lightbulb text-[#F4920D] text-sm shrink-0 mt-0.5"></i>
+                    <div>
+                        <span class="font-bold">Ajuster le dispositif en direct :</span>
+                        <p class="mt-0.5 text-amber-800/90 dark:text-amber-300/90">
+                            Vous souhaitez modifier un emplacement ? Demandez-le simplement dans le chat à gauche (ex : <i>« Remplace le panneau 4 par un emplacement sur la N4 »</i> ou <i>« Élargis la sélection vers Eghezée »</i>).
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </main>
 
     <script>
         // Configuration Marked.js
@@ -460,7 +707,10 @@ class MmoveHandler(BaseHTTPRequestHandler):
                 const data = await res.json();
                 removeLoading(loadingId);
 
-                appendMessage('model', data.text, data.panels, data.timing);
+                // Mise à jour de la cartographie latérale en temps réel
+                updateSideMap(data.campaign_plan, data.panels);
+
+                appendMessage('model', data.text, data.panels, data.timing, data.campaign_plan);
                 history.push({ role: 'model', text: data.text });
             } catch (err) {
                 removeLoading(loadingId);
@@ -586,7 +836,164 @@ class MmoveHandler(BaseHTTPRequestHandler):
             </div>`;
         }
 
-        function appendMessage(role, text, panels = [], timing = null) {
+        function renderCampaignPlanWidget(cp) {
+            if (!cp || !cp.months || cp.months.length === 0) return '';
+            const summary = cp.summary || {};
+            const months = cp.months || [];
+            const widgetId = 'cp_' + Math.random().toString(36).substring(2, 9);
+            const totalOts = summary.total_cumulative_ots ? Number(summary.total_cumulative_ots).toLocaleString('fr-FR') : '';
+            const avgVeh = summary.avg_veh_per_day ? Number(summary.avg_veh_per_day).toLocaleString('fr-FR') : '';
+
+            let tabsHtml = '';
+            let panesHtml = '';
+
+            months.forEach((m, idx) => {
+                const isActive = idx === 0;
+                const tabId = `${widgetId}_tab_${idx}`;
+                const paneId = `${widgetId}_pane_${idx}`;
+
+                tabsHtml += `
+                <button type="button" 
+                        onclick="switchCampaignTab('${widgetId}', ${idx})"
+                        id="${tabId}"
+                        class="campaign-tab-btn px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${isActive ? 'bg-[#F4920D] text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}">
+                    📅 ${m.period_human} (${m.panels ? m.panels.length : 0} faces)
+                </button>`;
+
+                let panelListHtml = '';
+                if (m.panels) {
+                    m.panels.forEach((p, pIdx) => {
+                        const pid = String(p.id).replace('.0', '');
+                        const pFreq = p.frequentation_jour ? Number(p.frequentation_jour).toLocaleString('fr-FR') : '';
+                        const pOts = p.ots_mensuel ? Number(p.ots_mensuel).toLocaleString('fr-FR') : '';
+                        const pDir = p.direction_in || p.direction_out || p.direction || 'Double sens';
+                        const pAxe = p.axe_routier || p.code_route || '';
+
+                        panelListHtml += `
+                        <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/60 flex items-start gap-2.5 text-xs">
+                            <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#F4920D] text-white font-bold text-[11px] shrink-0 mt-0.5 shadow-2xs">
+                                ${pIdx + 1}
+                            </span>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between gap-1">
+                                    <a href="${p.lien || `https://remorquepublicitaire.be/remorque/${pid}`}" target="_blank" class="font-bold text-slate-800 dark:text-slate-100 hover:text-[#F4920D] truncate">
+                                        #${pid} ${p.ville} <span class="font-normal text-slate-500">(${p.localisation || ''})</span>
+                                    </a>
+                                    <span class="text-[10px] font-semibold text-[#F4920D] shrink-0">${pAxe}</span>
+                                </div>
+                                <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex flex-wrap gap-x-2">
+                                    <span>🧭 Dir. <b>${pDir}</b></span>
+                                    ${pFreq ? `<span>🚗 <b>${pFreq}</b> véh./j</span>` : ''}
+                                    ${pOts ? `<span>👁️ <b>${pOts}</b> OTS</span>` : ''}
+                                </div>
+                            </div>
+                        </div>`;
+                    });
+                }
+
+                panesHtml += `
+                <div id="${paneId}" class="campaign-pane ${isActive ? 'block' : 'hidden'} space-y-3 mt-3">
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
+                        <!-- Colonne gauche : Panneaux du mois -->
+                        <div class="lg:col-span-6 space-y-2">
+                            <div class="flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700 pb-1">
+                                <span>Dispositif de ${m.period_human}</span>
+                                <span class="text-[#F4920D] font-bold">${m.stats ? Number(m.stats.veh_per_day || 0).toLocaleString('fr-FR') : ''} véh./j</span>
+                            </div>
+                            <div class="space-y-1.5 max-h-[300px] overflow-y-auto pr-1">
+                                ${panelListHtml}
+                            </div>
+                            ${m.deadline_full ? `
+                            <div class="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-800">
+                                <i class="fa-regular fa-clock text-[#F4920D]"></i>
+                                <span>Fichiers 390×200 cm avant le <b>${m.deadline_full}</b></span>
+                            </div>` : ''}
+                        </div>
+
+                        <!-- Colonne droite : Carte en vis-à-vis -->
+                        <div class="lg:col-span-6">
+                            ${m.map_url ? `
+                            <div class="relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm bg-slate-100 dark:bg-slate-800">
+                                <img src="${m.map_url}" alt="Carte ${m.period_human}" class="w-full h-auto object-cover" />
+                                <div class="absolute bottom-2 left-2 bg-black/75 backdrop-blur-sm text-white text-[10px] px-2.5 py-1 rounded-md font-medium">
+                                    Carte d'implantation — ${m.period_human}
+                                </div>
+                            </div>` : ''}
+                        </div>
+                    </div>
+                </div>`;
+            });
+
+            return `
+            <div id="${widgetId}" class="mt-4 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+                <!-- En-tête Widget Plan Média -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-700/80 pb-3">
+                    <div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-[#F4920D]/10 text-[#F4920D]">
+                                <i class="fa-solid fa-map-location-dot text-sm"></i>
+                            </span>
+                            <h4 class="font-bold text-sm text-slate-900 dark:text-white">Plan Média Campagne 8m²</h4>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#F4920D] text-white">
+                                ${months.length} mois
+                            </span>
+                            ${cp.client_name ? `
+                            <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 dark:bg-amber-950/60 text-[#F4920D] border border-amber-300 dark:border-amber-700/60 flex items-center gap-1">
+                                <i class="fa-solid fa-building text-[10px]"></i> Client : ${cp.client_name}
+                            </span>` : ''}
+                        </div>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                            ${summary.total_faces_deployed || (months.length * 5)} faces déployées · ~${totalOts} occasions d'être vu (OTS)
+                            ${!cp.client_name ? `<span class="italic text-slate-400 ml-1">· Indiquez un nom de client dans le chat pour personnaliser le PDF</span>` : ''}
+                        </p>
+                    </div>
+
+                    <!-- Bouton Télécharger PDF -->
+                    ${cp.pdf_url ? `
+                    <a href="${cp.pdf_url}" target="_blank" download
+                       class="btn-pdf inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#F4920D] to-[#FF5B34] font-bold text-xs shadow-xs hover:brightness-110 active:scale-95 transition-all shrink-0"
+                       style="color: #ffffff !important; text-decoration: none !important;">
+                        <i class="fa-solid fa-file-pdf text-sm" style="color: #ffffff !important;"></i>
+                        <span style="color: #ffffff !important;">Télécharger le Plan Média (PDF A4 Paysage)</span>
+                    </a>` : ''}
+                </div>
+
+                <!-- Onglets Mois -->
+                <div class="flex flex-wrap gap-2 mt-3">
+                    ${tabsHtml}
+                </div>
+
+                <!-- Contenu par mois -->
+                ${panesHtml}
+            </div>`;
+        }
+
+        function switchCampaignTab(widgetId, targetIdx) {
+            const container = document.getElementById(widgetId);
+            if (!container) return;
+            const buttons = container.querySelectorAll('.campaign-tab-btn');
+            const panes = container.querySelectorAll('.campaign-pane');
+
+            buttons.forEach((btn, idx) => {
+                if (idx === targetIdx) {
+                    btn.className = 'campaign-tab-btn px-3 py-1.5 rounded-xl text-xs font-bold transition-all bg-[#F4920D] text-white shadow-xs';
+                } else {
+                    btn.className = 'campaign-tab-btn px-3 py-1.5 rounded-xl text-xs font-bold transition-all bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700';
+                }
+            });
+
+            panes.forEach((pane, idx) => {
+                if (idx === targetIdx) {
+                    pane.classList.remove('hidden');
+                    pane.classList.add('block');
+                } else {
+                    pane.classList.remove('block');
+                    pane.classList.add('hidden');
+                }
+            });
+        }
+
+        function appendMessage(role, text, panels = [], timing = null, campaignPlan = null) {
             const div = document.createElement('div');
             const isUser = role === 'user';
             div.className = `flex items-start space-x-3 ${isUser ? 'justify-end' : ''}`;
@@ -604,8 +1011,10 @@ class MmoveHandler(BaseHTTPRequestHandler):
                 formattedText = (typeof marked !== 'undefined') ? marked.parse(text) : `<p class="whitespace-pre-line">${text}</p>`;
             }
 
+            let campaignHtml = campaignPlan ? renderCampaignPlanWidget(campaignPlan) : '';
+
             let panelsHtml = '';
-            if (panels && panels.length > 0) {
+            if (!campaignPlan && panels && panels.length > 0) {
                 panelsHtml = '<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">';
                 panels.forEach(p => {
                     panelsHtml += renderPanelCard(p);
@@ -632,6 +1041,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
                 ${!isUser ? avatar : ''}
                 <div class="${bubbleClass}">
                     ${formattedText}
+                    ${campaignHtml}
                     ${panelsHtml}
                     ${timingHtml}
                 </div>
@@ -669,6 +1079,337 @@ class MmoveHandler(BaseHTTPRequestHandler):
             const el = document.getElementById(id);
             if (el) el.remove();
         }
+
+        // ==========================================
+        // MODULE CARTOGRAPHIQUE EN VIS-À-VIS (Split View Leaflet)
+        // ==========================================
+        let map = null;
+        let networkLayer = null;
+        let recommendationLayer = null;
+        let markersMap = {};
+        let currentCampaignPlan = null;
+        let activeMonthIdx = 0;
+        let currentMapMode = 'interactive';
+
+        function initLeafletMap() {
+            if (typeof L === 'undefined') return;
+            const mapEl = document.getElementById('leafletMap');
+            if (!mapEl) return;
+
+            try {
+                map = L.map('leafletMap', {
+                    zoomControl: true,
+                    attributionControl: false
+                }).setView([50.50, 4.65], 9);
+
+                L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 18,
+                    attribution: '&copy; OpenStreetMap'
+                }).addTo(map);
+
+                networkLayer = L.layerGroup().addTo(map);
+                recommendationLayer = L.layerGroup().addTo(map);
+
+                loadNetworkMarkers();
+
+                window.addEventListener('resize', () => {
+                    if (map) map.invalidateSize();
+                });
+            } catch (e) {
+                console.warn("Initialisation Leaflet:", e);
+            }
+        }
+
+        async function loadNetworkMarkers() {
+            try {
+                const res = await fetch('/api/network-trailers');
+                const trailers = await res.json();
+                if (!Array.isArray(trailers) || !networkLayer) return;
+
+                trailers.forEach(t => {
+                    if (t.lat && t.lng) {
+                        const dotIcon = L.divIcon({
+                            className: 'leaflet-div-icon',
+                            html: `<div class="map-dot-network" title="#${t.id} - ${t.ville}"></div>`,
+                            iconSize: [9, 9],
+                            iconAnchor: [4.5, 4.5]
+                        });
+                        const m = L.marker([parseFloat(t.lat), parseFloat(t.lng)], { icon: dotIcon });
+                        m.bindPopup(`
+                            <div style="font-family:'Plus Jakarta Sans',sans-serif; font-size:12px; line-height:1.4;">
+                                <div style="font-weight:700; color:#F4920D;">#${t.id} ${t.ville}</div>
+                                <div style="color:#64748b; font-size:11px;">${t.axe_routier || ''}</div>
+                                ${t.frequentation ? `<div style="margin-top:4px; font-weight:600;">🚗 ${Number(t.frequentation).toLocaleString('fr-FR')} véh./j</div>` : ''}
+                                ${t.photo ? `<img src="${t.photo}" style="width:100%; border-radius:6px; margin-top:6px; max-height:85px; object-fit:cover;" onerror="this.remove()"/>` : ''}
+                            </div>
+                        `);
+                        networkLayer.addLayer(m);
+                    }
+                });
+            } catch (e) {
+                console.warn("Impossible de charger les remorques du réseau:", e);
+            }
+        }
+
+        function switchMobileView(view) {
+            const chatSec = document.getElementById('chatSection');
+            const mapSec = document.getElementById('mapSection');
+            const chatBtn = document.getElementById('viewChatBtn');
+            const mapBtn = document.getElementById('viewMapBtn');
+
+            if (view === 'map') {
+                chatSec.classList.add('hidden');
+                mapSec.classList.remove('hidden');
+                mapSec.classList.add('flex');
+                mapBtn.className = 'px-2.5 py-1 text-xs font-bold rounded-lg bg-white dark:bg-slate-900 text-[#F4920D] shadow-xs transition flex items-center gap-1';
+                chatBtn.className = 'px-2.5 py-1 text-xs font-bold rounded-lg text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition';
+                if (map) setTimeout(() => map.invalidateSize(), 200);
+            } else {
+                mapSec.classList.remove('flex');
+                mapSec.classList.add('hidden');
+                chatSec.classList.remove('hidden');
+                chatBtn.className = 'px-2.5 py-1 text-xs font-bold rounded-lg bg-white dark:bg-slate-900 text-[#F4920D] shadow-xs transition';
+                mapBtn.className = 'px-2.5 py-1 text-xs font-bold rounded-lg text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition flex items-center gap-1';
+            }
+        }
+
+        function setMapDisplayMode(mode) {
+            currentMapMode = mode;
+            const btnInteractive = document.getElementById('btnModeInteractive');
+            const btnRender = document.getElementById('btnModeRender');
+            const leafletEl = document.getElementById('leafletMap');
+            const renderEl = document.getElementById('renderMapContainer');
+
+            if (mode === 'render') {
+                leafletEl.classList.add('hidden');
+                renderEl.classList.remove('hidden');
+                btnRender.className = 'px-2 py-0.5 font-bold rounded-md bg-white dark:bg-slate-900 text-[#F4920D] shadow-2xs';
+                btnInteractive.className = 'px-2 py-0.5 font-semibold rounded-md text-slate-500 hover:text-slate-800 dark:hover:text-slate-200';
+            } else {
+                renderEl.classList.add('hidden');
+                leafletEl.classList.remove('hidden');
+                btnInteractive.className = 'px-2 py-0.5 font-bold rounded-md bg-white dark:bg-slate-900 text-[#F4920D] shadow-2xs';
+                btnRender.className = 'px-2 py-0.5 font-semibold rounded-md text-slate-500 hover:text-slate-800 dark:hover:text-slate-200';
+                if (map) map.invalidateSize();
+            }
+        }
+
+        function updateSideMap(campaignPlan, panels) {
+            const sideTitle = document.getElementById('sideMapTitle');
+            const sideSubtitle = document.getElementById('sideMapSubtitle');
+            const pdfBtn = document.getElementById('sidePdfDownloadBtn');
+            const modeToggle = document.getElementById('mapModeToggle');
+            const tabsBar = document.getElementById('sideMonthTabsBar');
+            const mobileBadge = document.getElementById('mobilePinBadge');
+
+            if (campaignPlan && campaignPlan.months && campaignPlan.months.length > 0) {
+                currentCampaignPlan = campaignPlan;
+                activeMonthIdx = 0;
+
+                sideTitle.innerText = "Plan Média & Cartographie";
+                const totalFaces = campaignPlan.summary?.total_faces_deployed || (campaignPlan.months.length * 5);
+                const clientPart = campaignPlan.client_name ? ` · Client : ${campaignPlan.client_name}` : '';
+                sideSubtitle.innerText = `${campaignPlan.months.length} mois · ${totalFaces} faces déployées${clientPart}`;
+
+                if (campaignPlan.pdf_url) {
+                    pdfBtn.href = campaignPlan.pdf_url;
+                    pdfBtn.classList.remove('hidden');
+                } else {
+                    pdfBtn.classList.add('hidden');
+                }
+
+                modeToggle.classList.remove('hidden');
+                tabsBar.classList.remove('hidden');
+
+                // Génération des onglets mensuels
+                let tabsHtml = '';
+                campaignPlan.months.forEach((m, idx) => {
+                    const isAct = idx === 0;
+                    tabsHtml += `
+                        <button type="button" onclick="selectCampaignMonth(${idx})" id="sideMonthBtn_${idx}" 
+                                class="side-month-btn px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${isAct ? 'bg-[#F4920D] text-white shadow-xs' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200/80 dark:border-slate-700'}">
+                            📅 ${m.period_human} (${m.panels?.length || 5} faces)
+                        </button>
+                    `;
+                });
+                tabsBar.innerHTML = tabsHtml;
+
+                if (mobileBadge) {
+                    mobileBadge.innerText = totalFaces;
+                    mobileBadge.classList.remove('hidden');
+                }
+
+                selectCampaignMonth(0);
+            } else if (panels && panels.length > 0) {
+                currentCampaignPlan = null;
+                sideTitle.innerText = "Sélection Recommandée";
+                sideSubtitle.innerText = `${panels.length} panneaux qualifiés en Wallonie`;
+                pdfBtn.classList.add('hidden');
+                modeToggle.classList.add('hidden');
+                tabsBar.classList.add('hidden');
+
+                if (mobileBadge) {
+                    mobileBadge.innerText = panels.length;
+                    mobileBadge.classList.remove('hidden');
+                }
+
+                displayPanelsOnSideMap(panels, null, null);
+            }
+        }
+
+        function selectCampaignMonth(idx) {
+            if (!currentCampaignPlan || !currentCampaignPlan.months[idx]) return;
+            activeMonthIdx = idx;
+
+            // Mise à jour de l'apparence des onglets
+            const btns = document.querySelectorAll('.side-month-btn');
+            btns.forEach((b, i) => {
+                if (i === idx) {
+                    b.className = 'side-month-btn px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 bg-[#F4920D] text-white shadow-xs';
+                } else {
+                    b.className = 'side-month-btn px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200/80 dark:border-slate-700';
+                }
+            });
+
+            const m = currentCampaignPlan.months[idx];
+            const renderImg = document.getElementById('renderMapImage');
+            if (renderImg && m.map_url) {
+                renderImg.src = m.map_url;
+            }
+
+            displayPanelsOnSideMap(m.panels, m.stats, m.period_human);
+        }
+
+        function displayPanelsOnSideMap(panels, stats = null, periodLabel = null) {
+            if (!recommendationLayer || !map) return;
+            recommendationLayer.clearLayers();
+            markersMap = {};
+
+            const listHeader = document.getElementById('sideListHeader');
+            const listTitle = document.getElementById('sideListTitle');
+            const listCount = document.getElementById('sideListCount');
+            const overlayText = document.getElementById('mapOverlayText');
+            const listEl = document.getElementById('sidePanelsList');
+
+            if (!panels || panels.length === 0) {
+                if (listHeader) listHeader.classList.add('hidden');
+                listEl.innerHTML = '<p class="text-xs text-slate-400 p-2 text-center">Aucun panneau sélectionné.</p>';
+                return;
+            }
+
+            if (listHeader) listHeader.classList.remove('hidden');
+            const count = panels.length;
+            if (listTitle) listTitle.innerText = periodLabel ? `Emplacements · ${periodLabel}` : `Emplacements sélectionnés`;
+            if (listCount) listCount.innerText = `${count} faces`;
+
+            if (periodLabel) {
+                overlayText.innerText = `${count} faces actives · ${periodLabel}`;
+            } else {
+                overlayText.innerText = `${count} faces sélectionnées`;
+            }
+
+            const bounds = [];
+            let listCardsHtml = '';
+
+            panels.forEach((p, idx) => {
+                const num = idx + 1;
+                const panelId = String(p.id || p.remorque || '').replace('.0', '');
+                const lat = parseFloat(p.lat);
+                const lng = parseFloat(p.lng);
+                const photoUrl = p.photo || p.image_url || `https://remorquepublicitaire.be/wp-content/uploads/2021/07/${panelId}in.jpg`;
+                const axe = p.axe_routier || p.code_route || '';
+                const dir = p.direction ? `· Vers ${p.direction}` : '';
+                const distKm = (p.distance_km !== null && p.distance_km !== undefined && p.distance_km > 0) ? `📍 ${p.distance_km} km` : '';
+
+                if (!isNaN(lat) && !isNaN(lng)) {
+                    bounds.push([lat, lng]);
+
+                    const pinIcon = L.divIcon({
+                        className: 'leaflet-div-icon',
+                        html: `
+                            <div class="map-pin-container" onclick="focusPanelOnMap('${panelId}')">
+                                <div class="map-pin-circle">${num}</div>
+                                <div class="map-pin-badge">#${panelId}</div>
+                            </div>
+                        `,
+                        iconSize: [30, 42],
+                        iconAnchor: [15, 40]
+                    });
+
+                    const marker = L.marker([lat, lng], { icon: pinIcon, zIndexOffset: 1000 + num });
+                    marker.bindPopup(`
+                        <div style="font-family:'Plus Jakarta Sans',sans-serif; font-size:12px; line-height:1.4;">
+                            <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                                <span style="background:#F4920D; color:white; font-weight:800; border-radius:50%; width:20px; height:20px; display:inline-flex; align-items:center; justify-content:center; font-size:11px;">${num}</span>
+                                <span style="font-weight:700; color:#1e293b; font-size:13px;">#${panelId} ${p.ville || ''}</span>
+                            </div>
+                            <div style="color:#64748b; font-size:11px; font-weight:500;">${axe} ${dir}</div>
+                            ${distKm ? `<div style="color:#059669; font-size:11px; font-weight:600; margin-top:3px;">${distKm}</div>` : ''}
+                            <img src="${photoUrl}" style="width:100%; border-radius:8px; margin-top:6px; max-height:95px; object-fit:cover;" onerror="this.remove()" />
+                            <div style="margin-top:6px; text-align:right;">
+                                <a href="${p.lien || '#'}" target="_blank" style="color:#F4920D; font-weight:700; text-decoration:none; font-size:11px;">Fiche remorque &rarr;</a>
+                            </div>
+                        </div>
+                    `);
+                    recommendationLayer.addLayer(marker);
+                    markersMap[panelId] = marker;
+                }
+
+                // Carte compacte dans la liste latérale
+                listCardsHtml += `
+                    <div id="sideCard_${panelId}" onclick="focusPanelOnMap('${panelId}')" 
+                         class="cursor-pointer p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 hover:border-[#F4920D] dark:hover:border-[#F4920D] hover:shadow-sm transition-all text-xs flex items-center justify-between gap-2.5 group">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            <span class="w-6 h-6 rounded-full bg-[#F4920D] group-hover:bg-[#FF5B34] text-white font-extrabold flex items-center justify-center shrink-0 text-xs shadow-2xs transition-colors">
+                                ${num}
+                            </span>
+                            <div class="min-w-0">
+                                <div class="font-bold text-slate-900 dark:text-white truncate">
+                                    #${panelId} ${p.ville || ''}
+                                </div>
+                                <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                                    ${axe} ${dir}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-right shrink-0 flex flex-col items-end">
+                            ${distKm ? `<span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">${distKm}</span>` : ''}
+                            <span class="text-[10px] text-[#F4920D] font-semibold mt-0.5 group-hover:underline">Localiser &rarr;</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            listEl.innerHTML = listCardsHtml;
+
+            // Recadrage dynamique de la carte
+            if (bounds.length > 0) {
+                setTimeout(() => {
+                    map.invalidateSize();
+                    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+                }, 100);
+            }
+        }
+
+        function focusPanelOnMap(panelId) {
+            const marker = markersMap[panelId];
+            if (marker && map) {
+                map.flyTo(marker.getLatLng(), 14, { duration: 0.8 });
+                marker.openPopup();
+            }
+
+            // Highlight side card
+            document.querySelectorAll('[id^="sideCard_"]').forEach(c => {
+                c.classList.remove('ring-2', 'ring-[#F4920D]', 'bg-amber-50/50', 'dark:bg-amber-950/20');
+            });
+            const card = document.getElementById(`sideCard_${panelId}`);
+            if (card) {
+                card.classList.add('ring-2', 'ring-[#F4920D]', 'bg-amber-50/50', 'dark:bg-amber-950/20');
+                card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', initLeafletMap);
     </script>
 </body>
 </html>"""

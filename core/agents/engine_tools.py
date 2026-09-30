@@ -14,6 +14,7 @@ import math
 import re
 import ssl
 import unicodedata
+from datetime import datetime
 import urllib.request
 import urllib.parse
 from typing import List, Dict, Any, Optional, Tuple
@@ -495,6 +496,8 @@ class MmoveEngineTools:
 
             candidate_obj = {
                 "id": rem_id,
+                "lat": t.get("lat"),
+                "lng": t.get("lng"),
                 "ville": t["ville"],
                 "localisation": t["localisation"],
                 "province": t["province"],
@@ -609,3 +612,149 @@ class MmoveEngineTools:
         """Recherche directe par ID de remorque."""
         clean_id = str(trailer_id).strip().replace("#", "")
         return self.trailers.get(clean_id)
+
+    def plan_multi_month_campaign(
+        self,
+        locations: Optional[List[str]] = None,
+        target_periods: Optional[List[str]] = None,
+        count_per_month: int = 5,
+        max_distance_km: float = 30.0,
+        axes: Optional[List[str]] = None
+    ) -> Dict[str, Any]:
+        """
+        Génère une proposition de campagne publicitaire multi-mois avec rotation dynamique des faces.
+        Règles :
+        - Diversité stricte des axes routiers (au maximum 1 panneau par axe par mois).
+        - Rotation anti-doublon consécutif : interdit de placer 2 mois de suite le client sur le même panneau/direction.
+        - Calcul d'impact cumulé (OTS, véhicules/jour) et rétroplanning bâche au 15 du mois précédent.
+        """
+        now = datetime.now()
+        cur_year = now.year
+        cur_month = now.month
+
+        # Si aucune période fournie, définir par défaut le mois prochain
+        if not target_periods:
+            next_m = cur_month + 1
+            next_y = cur_year
+            if next_m > 12:
+                next_m = 1
+                next_y += 1
+            periods = [f"{next_y}-{next_m:02d}"]
+        else:
+            periods = sorted(list(dict.fromkeys(target_periods)))
+
+        def get_axis_sig(c: Dict[str, Any]) -> str:
+            cr = (c.get("code_route") or "").upper().strip()
+            if cr:
+                m = re.match(r"([A-Z]\d+)", cr)
+                if m:
+                    return m.group(1)
+            ax = (c.get("axe_routier") or "").upper().strip()
+            m = re.search(r"\b([NE]\d+)\b", ax)
+            if m:
+                return m.group(1)
+            return c.get("ville", "")
+
+        month_names = ["", "janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"]
+
+        month_plans = []
+        used_in_prev_month = set()
+        all_unique_panels = set()
+
+        for idx, period in enumerate(periods, start=1):
+            candidates = self.search_and_rank(
+                locations=locations,
+                axes=axes,
+                target_periods=[period],
+                max_distance_km=max_distance_km,
+                top_k=40,
+                enforce_axis_diversity=False
+            )
+
+            fresh_candidates = [c for c in candidates if str(c["id"]) not in used_in_prev_month]
+            reuse_candidates = [c for c in candidates if str(c["id"]) in used_in_prev_month]
+
+            selected = []
+            seen_axes = set()
+
+            # 1. Priorité aux candidats frais non utilisés le mois précédent avec axes distincts
+            for c in fresh_candidates:
+                sig = get_axis_sig(c)
+                if sig not in seen_axes:
+                    seen_axes.add(sig)
+                    selected.append(c)
+                    if len(selected) == count_per_month:
+                        break
+
+            # 2. Compléter avec les candidats frais restants si moins d'axes que de panneaux demandés
+            if len(selected) < count_per_month:
+                sel_ids = {s["id"] for s in selected}
+                for c in fresh_candidates:
+                    if c["id"] not in sel_ids:
+                        selected.append(c)
+                        sel_ids.add(c["id"])
+                        if len(selected) == count_per_month:
+                            break
+
+            # 3. Dernier recours : piocher dans les candidats réutilisés si le bassin est restreint
+            if len(selected) < count_per_month:
+                sel_ids = {s["id"] for s in selected}
+                for c in reuse_candidates:
+                    if c["id"] not in sel_ids:
+                        selected.append(c)
+                        sel_ids.add(c["id"])
+                        if len(selected) == count_per_month:
+                            break
+
+            used_in_prev_month = {str(s["id"]) for s in selected}
+            for s in selected:
+                all_unique_panels.add(str(s["id"]))
+
+            period_human = format_period_human(period)
+            
+            # Calcul du rétroplanning pour ce mois
+            parts = period.split("-")
+            py, pm = int(parts[0]), int(parts[1])
+            prev_m = 12 if pm == 1 else pm - 1
+            prev_y = py - 1 if pm == 1 else py
+            deadline_str = f"15 {month_names[prev_m]}"
+            deadline_full = f"15 {month_names[prev_m]} {prev_y}"
+
+            m_veh = sum(p.get("frequentation_jour", 0) for p in selected)
+            m_ots = sum(p.get("ots_mensuel", int(p.get("frequentation_jour", 0) * 36)) for p in selected)
+
+            month_plans.append({
+                "period": period,
+                "period_human": period_human,
+                "month_index": idx,
+                "panels": selected,
+                "stats": {
+                    "count": len(selected),
+                    "veh_per_day": m_veh,
+                    "ots_month": m_ots,
+                },
+                "deadline": deadline_str,
+                "deadline_full": deadline_full
+            })
+
+        total_faces_deployed = sum(m["stats"]["count"] for m in month_plans)
+        total_cumulative_ots = sum(m["stats"]["ots_month"] for m in month_plans)
+        avg_veh_per_day = int(sum(m["stats"]["veh_per_day"] for m in month_plans) / max(1, len(month_plans)))
+
+        primary_loc = locations[0].title() if locations else "Wallonie"
+
+        return {
+            "periods": periods,
+            "months": month_plans,
+            "summary": {
+                "location": primary_loc,
+                "months_count": len(month_plans),
+                "faces_per_month": count_per_month,
+                "total_faces_deployed": total_faces_deployed,
+                "unique_panels_count": len(all_unique_panels),
+                "avg_veh_per_day": avg_veh_per_day,
+                "total_cumulative_ots": total_cumulative_ots,
+                "first_deadline": month_plans[0]["deadline_full"] if month_plans else ""
+            }
+        }
+

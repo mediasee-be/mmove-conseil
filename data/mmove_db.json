@@ -395,7 +395,7 @@
         "OUT": "DISPO"
       },
       "2027-04": {
-        "IN": "DISPO",
+        "IN": "LOUÉ",
         "OUT": "DISPO"
       },
       "2027-05": {
@@ -669,7 +669,7 @@
     "frequentation_jour": 64200,
     "ots_mensuel": 2600100,
     "score_impact": "Très Élevé (20-45s)",
-    "contexte_visibilite": "Nœud giratoire / bouchons récurrents HP / zone commerciale majeure",
+    "contexte_visibilite": "Nœud giratoire / bouchons récurrents / zone commerciale majeure",
     "photo_in": "Photo/9f4a5d8e.Photo.070211.jpg",
     "photo_out": "Photo/106OUT-Institut Charles Péguy-2021-_2076647423207887011.Photo.083530.jpg",
     "lien": "https://remorquepublicitaire.be/remorque/106",
@@ -887,7 +887,7 @@
     "frequentation_jour": 64200,
     "ots_mensuel": 2600100,
     "score_impact": "Très Élevé (20-45s)",
-    "contexte_visibilite": "Nœud giratoire / bouchons récurrents HP / zone commerciale majeure",
+    "contexte_visibilite": "Nœud giratoire / bouchons récurrents / zone commerciale majeure",
     "photo_in": "Photo/9cb1bad7.Photo.085241.jpg",
     "photo_out": "Photo/107OUT-Majois-2021-07-f0ef3044.Photo.072706.jpg",
     "lien": "https://remorquepublicitaire.be/remorque/107",
@@ -1049,7 +1049,7 @@
         "OUT": "DISPO"
       },
       "2027-04": {
-        "IN": "DISPO",
+        "IN": "LOUÉ",
         "OUT": "DISPO"
       },
       "2027-05": {
@@ -1105,7 +1105,7 @@
     "frequentation_jour": 64200,
     "ots_mensuel": 2600100,
     "score_impact": "Très Élevé (20-45s)",
-    "contexte_visibilite": "Nœud giratoire / bouchons récurrents HP / zone commerciale majeure",
+    "contexte_visibilite": "Nœud giratoire / bouchons récurrents / zone commerciale majeure",
     "photo_in": "",
     "photo_out": "",
     "lien": "https://remorquepublicitaire.be/remorque/108",
@@ -6895,7 +6895,7 @@
     "frequentation_jour": 16550,
     "ots_mensuel": 670275,
     "score_impact": "Très Élevé (20-45s)",
-    "contexte_visibilite": "[Zoning] Zoning de Sprimont (carrefour Sprimoglass) — Nœud giratoire / bouchons récurrents HP / zone commerciale majeure",
+    "contexte_visibilite": "[Zoning] Zoning de Sprimont (carrefour Sprimoglass) — Nœud giratoire / bouchons récurrents / zone commerciale majeure",
     "photo_in": "Photo/0d5593f6.Photo.072635.jpg",
     "photo_out": "Photo/204OUT-Louez moi-2021-07-3bea44df.Photo.113651.jpg",
     "lien": "https://remorquepublicitaire.be/remorque/222",
@@ -16779,7 +16779,7 @@
     "frequentation_jour": 34500,
     "ots_mensuel": 1397250,
     "score_impact": "Très Élevé (20-45s)",
-    "contexte_visibilite": "[Zoning] Pôle commercial & zoning de Naninne (sortie E411 - 1) — Nœud giratoire / bouchons récurrents HP / zone commerciale majeure",
+    "contexte_visibilite": "[Zoning] Pôle commercial & zoning de Naninne (sortie E411 - 1) — Nœud giratoire / bouchons récurrents / zone commerciale majeure",
     "photo_in": "Photo/343IN-Expert Literie-2021-07-dc5484f5.Photo.084519.jpg",
     "photo_out": "Photo/343OUT-New Teck-2021-07-0eb47844.Photo.084257.jpg",
     "lien": "https://remorquepublicitaire.be/remorque/343",
@@ -16997,7 +16997,7 @@
     "frequentation_jour": 34500,
     "ots_mensuel": 1397250,
     "score_impact": "Très Élevé (20-45s)",
-    "contexte_visibilite": "[Zoning] Rond-point commercial & zoning de Naninne (2) — Nœud giratoire / bouchons récurrents HP / zone commerciale majeure",
+    "contexte_visibilite": "[Zoning] Rond-point commercial & zoning de Naninne (2) — Nœud giratoire / bouchons récurrents / zone commerciale majeure",
     "photo_in": "Photo/344IN-Quadrus-2021-07-818d133a.Photo.090611.jpg",
     "photo_out": "Photo/344OUT-Usico-2021-07-c242118c.Photo.090407.jpg",
     "lien": "https://remorquepublicitaire.be/remorque/344",
@@ -20703,7 +20703,7 @@
     "frequentation_jour": 34500,
     "ots_mensuel": 1397250,
     "score_impact": "Très Élevé (20-45s)",
-    "contexte_visibilite": "Nœud giratoire / bouchons récurrents HP / zone commerciale majeure",
+    "contexte_visibilite": "Nœud giratoire / bouchons récurrents / zone commerciale majeure",
     "photo_in": "Remorques_Images/1011.Photo-IN.145716.jpg",
     "photo_out": "Remorques_Images/1011.Photo-OUT.145716.jpg",
     "lien": "https://remorquepublicitaire.be/remorque/363",
@@ -21745,7 +21745,7 @@
     "frequentation_jour": 44600,
     "ots_mensuel": 1806300,
     "score_impact": "Très Élevé (20-45s)",
-    "contexte_visibilite": "Nœud giratoire / bouchons récurrents HP / zone commerciale majeure",
+    "contexte_visibilite": "Nœud giratoire / bouchons récurrents / zone commerciale majeure",
     "photo_in": "Photo/8d2e5eb5.Photo.105546.jpg",
     "photo_out": "Photo/403OUT-Plumart-2021-07-34bd76b7.Photo.122146.jpg",
     "lien": "https://remorquepublicitaire.be/remorque/403",

@@ -12,3 +12,7 @@ env/
 venv/
 .idea/
 .vscode/
+data/maps/*
+!data/maps/.gitkeep
+data/pdf/*
+!data/pdf/.gitkeep

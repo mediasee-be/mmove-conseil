@@ -19,8 +19,8 @@ GOOGLE_SHEET_CSV_URL = (
     "https://docs.google.com/spreadsheets/d/1oB26N_hjCeYSqD1sAqAypWRbu48Vq4K6zDan7yly6mY/export?format=csv&gid=1940796205"
 )
 
-# Rôles administrateurs (peuvent voir tous les dossiers et filtrer par commercial)
-ADMIN_INITIALS = {"CH", "ADMIN"}
+# Rôles administrateurs / superviseurs (peuvent voir tous les dossiers et filtrer par commercial)
+ADMIN_INITIALS = {"CH", "DR", "ADMIN"}
 
 # Profils par défaut de secours (si pas de réseau)
 DEFAULT_SALESPEOPLE = [
@@ -30,7 +30,8 @@ DEFAULT_SALESPEOPLE = [
         "name": "David Rossomme",
         "phone": "+32 477 38 40 20",
         "email": "david@mediasee.be",
-        "is_admin": False
+        "role_title": "Directeur",
+        "is_admin": True
     },
     {
         "id": "JF",
@@ -207,13 +208,14 @@ class SalespersonService:
             username = email_clean.split("@")[0].replace(".", " ").title()
             parts = username.split()
             initials = "".join(p[0].upper() for p in parts[:2]) or "MS"
-            is_admin = email_clean in {"corentin@mediasee.be", "info@mediasee.be"}
+            is_admin = email_clean in {"corentin@mediasee.be", "david@mediasee.be", "info@mediasee.be"}
             new_sp = {
                 "id": initials,
                 "initials": initials,
                 "name": username,
                 "phone": "",
                 "email": email_clean,
+                "role_title": "Directeur" if email_clean == "david@mediasee.be" else ("Admin" if is_admin else "Conseiller"),
                 "is_admin": is_admin
             }
             self._salespeople_cache[initials] = new_sp
@@ -283,9 +285,11 @@ class SalespersonService:
         if user_picture:
             res["picture"] = user_picture
 
-        # Sécurité : Corentin Hubert est expressément garanti Admin
-        if resolved_email == "corentin@mediasee.be" or res.get("initials") == "CH":
+        # Sécurité : Corentin Hubert (Admin) et David Rossomme (Directeur) sont expressément garantis Superviseurs
+        if resolved_email in {"corentin@mediasee.be", "david@mediasee.be"} or res.get("initials") in ADMIN_INITIALS:
             res["is_admin"] = True
+            if resolved_email == "david@mediasee.be" or res.get("initials") == "DR":
+                res["role_title"] = "Directeur"
 
         return res
 

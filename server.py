@@ -1840,6 +1840,10 @@ class MmoveHandler(BaseHTTPRequestHandler):
             await submitAuthPayload({ email: 'corentin@mediasee.be' });
         }
 
+        async function loginDirectDavid() {
+            await submitAuthPayload({ email: 'david@mediasee.be' });
+        }
+
         async function submitAuthPayload(payload) {
             const errBox = document.getElementById('loginErrorMessage');
             const errText = document.getElementById('loginErrorText');
@@ -1859,7 +1863,8 @@ class MmoveHandler(BaseHTTPRequestHandler):
                     localStorage.removeItem('mmove_logged_out');
                     onUserAuthenticated(currentUser);
                     hideLoginModal();
-                    showLogsToast(`✓ Connecté : ${currentUser.name} (${currentUser.is_admin ? 'Admin' : 'Conseiller'})`);
+                    const roleLabel = currentUser.initials === 'DR' ? 'Directeur' : (currentUser.is_admin ? 'Admin' : 'Conseiller');
+                    showLogsToast(`✓ Connecté : ${currentUser.name} (${roleLabel})`);
                 } else {
                     if (errBox && errText) {
                         errText.textContent = data.message || "Erreur de connexion. Vérifiez votre adresse.";
@@ -1909,15 +1914,34 @@ class MmoveHandler(BaseHTTPRequestHandler):
             const dropEmail = document.getElementById('userDropdownEmail');
             const dropRole = document.getElementById('userDropdownRole');
 
+            const isDirector = currentUser.initials === 'DR' || currentUser.role_title === 'Directeur';
+
             if (avatar) avatar.textContent = currentUser.initials;
             if (name) name.textContent = currentUser.name;
             if (dropName) dropName.textContent = currentUser.name;
             if (dropEmail) dropEmail.textContent = currentUser.email || 'Google Workspace';
-            if (dropRole) dropRole.textContent = currentUser.is_admin ? '👑 Administrateur M Move' : '💼 Conseiller Commercial';
+            
+            if (dropRole) {
+                if (isDirector) {
+                    dropRole.textContent = '👑 Directeur (Superviseur)';
+                } else if (currentUser.is_admin) {
+                    dropRole.textContent = '👑 Administrateur M Move';
+                } else {
+                    dropRole.textContent = '💼 Conseiller Commercial';
+                }
+            }
 
             if (currentUser.is_admin) {
-                if (roleBadge) roleBadge.classList.remove('hidden');
-                if (drawerTitle) drawerTitle.textContent = "Dossiers Commerciaux (Vue Superviseur)";
+                if (roleBadge) {
+                    roleBadge.classList.remove('hidden');
+                    roleBadge.textContent = isDirector ? 'Directeur' : 'Admin';
+                    if (isDirector) {
+                        roleBadge.className = 'text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 font-extrabold uppercase border border-blue-500/20';
+                    } else {
+                        roleBadge.className = 'text-[9px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 font-extrabold uppercase border border-purple-500/20';
+                    }
+                }
+                if (drawerTitle) drawerTitle.textContent = isDirector ? "Dossiers Commerciaux (Vue Directeur)" : "Dossiers Commerciaux (Vue Superviseur)";
                 if (drawerSub) drawerSub.textContent = "Vue globale sur toutes les propositions de l'équipe";
                 if (adminFilterContainer) adminFilterContainer.classList.remove('hidden');
             } else {
@@ -2287,12 +2311,17 @@ class MmoveHandler(BaseHTTPRequestHandler):
                     </button>
                 </form>
 
-                <!-- Raccourci rapide Corentin (Admin) -->
-                <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
+                <!-- Raccourcis rapides Superviseurs (Corentin Admin & David Directeur) -->
+                <div class="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
                     <button type="button" onclick="loginDirectCorentin()"
                         class="w-full py-2 px-3 rounded-xl bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 text-xs font-bold border border-purple-200 dark:border-purple-800 transition flex items-center justify-center gap-2">
                         <i class="fa-solid fa-crown text-amber-500"></i>
-                        <span>Connexion rapide : Corentin Hubert (Admin)</span>
+                        <span>Connexion : Corentin Hubert (Admin)</span>
+                    </button>
+                    <button type="button" onclick="loginDirectDavid()"
+                        class="w-full py-2 px-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-xs font-bold border border-blue-200 dark:border-blue-800 transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-user-tie text-blue-500"></i>
+                        <span>Connexion : David Rossomme (Directeur)</span>
                     </button>
                 </div>
 

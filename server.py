@@ -433,6 +433,11 @@ class MmoveHandler(BaseHTTPRequestHandler):
             <button onclick="toggleDarkMode()" title="Changer le thème (Clair / Sombre)" class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition flex items-center justify-center">
                 <i id="themeIcon" class="fa-solid fa-moon text-[#666] dark:text-amber-400 text-sm"></i>
             </button>
+
+            <!-- Bouton Discret Exporter les Logs (Debug / Retours) -->
+            <button onclick="openConversationLogsModal()" title="Extraire les logs de la conversation pour débug / retours" class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition flex items-center justify-center text-slate-400 hover:text-[#F4920D] dark:text-slate-500 dark:hover:text-[#F4920D] opacity-60 hover:opacity-100" aria-label="Logs de conversation">
+                <i class="fa-solid fa-code text-xs"></i>
+            </button>
         </div>
     </header>
 
@@ -677,6 +682,145 @@ class MmoveHandler(BaseHTTPRequestHandler):
         const chatForm = document.getElementById('chatForm');
         const sendBtn = document.getElementById('sendBtn');
         let history = [];
+        let detailedLogs = [{
+            role: 'system',
+            time: new Date().toLocaleTimeString('fr-FR'),
+            timestamp: new Date().toISOString(),
+            text: "Initialisation de la session M Move Conseil"
+        }];
+
+        function showLogsToast(msg) {
+            const toast = document.getElementById('logsToast');
+            const msgEl = document.getElementById('logsToastMsg');
+            if (!toast || !msgEl) return;
+            msgEl.textContent = msg;
+            toast.classList.remove('translate-y-10', 'opacity-0', 'pointer-events-none');
+            toast.classList.add('translate-y-0', 'opacity-100');
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-10', 'opacity-0', 'pointer-events-none');
+            }, 3000);
+        }
+
+        function generateLogsText() {
+            if (!detailedLogs || detailedLogs.length === 0) {
+                return "Aucun échange enregistré dans cette session.";
+            }
+
+            let out = "=== LOGS DE CONVERSATION M MOVE CONSEIL ===\n";
+            out += `Date d'export : ${new Date().toLocaleString('fr-FR')}\n`;
+            out += `Nombre total d'événements : ${detailedLogs.length}\n`;
+            out += "==========================================\n\n";
+
+            detailedLogs.forEach((item) => {
+                if (item.role === 'user') {
+                    out += `--------------------------------------------------\n`;
+                    out += `[${item.time}] 👤 UTILISATEUR :\n`;
+                    out += `${item.text}\n\n`;
+                } else if (item.role === 'model') {
+                    out += `[${item.time}] 🤖 ASSISTANT M MOVE :\n`;
+                    if (item.timing && item.timing.elapsed_ms) {
+                        out += `⏱️ Temps de réponse : ${(item.timing.elapsed_ms / 1000).toFixed(2)}s\n`;
+                    }
+                    if (item.extracted && item.extracted.intent) {
+                        out += `🎯 Intention détectée : ${item.extracted.intent}\n`;
+                        if (item.extracted.client_name) out += `🏢 Client : ${item.extracted.client_name}\n`;
+                        if (item.extracted.target_periods && item.extracted.target_periods.length) out += `📅 Périodes : ${item.extracted.target_periods.join(', ')}\n`;
+                        if (item.extracted.city) out += `📍 Ville : ${item.extracted.city}\n`;
+                        if (item.extracted.n_faces) out += `🔢 Faces : ${item.extracted.n_faces}\n`;
+                    }
+                    if (item.panels_summary && item.panels_summary.length > 0) {
+                        out += `🏷️ Remorques (${item.panels_count}) : ${item.panels_summary.join(', ')}\n`;
+                    }
+                    if (item.campaign_plan && item.campaign_plan.pdf_url) {
+                        out += `📄 Plan Média PDF : ${item.campaign_plan.pdf_url}\n`;
+                    }
+                    out += `\n💬 TEXTE DE LA RÉPONSE :\n`;
+                    out += `${item.text}\n\n`;
+                } else if (item.role === 'error') {
+                    out += `[${item.time}] ⚠️ ERREUR :\n${item.text}\n\n`;
+                }
+            });
+
+            out += `==========================================\n`;
+            out += `=== FIN DES LOGS ===\n`;
+            return out;
+        }
+
+        async function openConversationLogsModal() {
+            const modal = document.getElementById('logsModal');
+            const ta = document.getElementById('logsTextarea');
+            if (!modal || !ta) return;
+            
+            const logsText = generateLogsText();
+            ta.value = logsText;
+            modal.classList.remove('hidden');
+
+            try {
+                await navigator.clipboard.writeText(logsText);
+                showLogsToast("✓ Logs copiés dans le presse-papier !");
+                const fb = document.getElementById('logsCopyFeedback');
+                if (fb) {
+                    fb.classList.remove('hidden');
+                    setTimeout(() => fb.classList.add('hidden'), 3500);
+                }
+            } catch (err) {
+                // Clipboard fallback sur clic
+            }
+        }
+
+        function closeConversationLogsModal() {
+            const modal = document.getElementById('logsModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        async function copyConversationLogs() {
+            const ta = document.getElementById('logsTextarea');
+            const text = (ta && ta.value) ? ta.value : generateLogsText();
+            try {
+                await navigator.clipboard.writeText(text);
+                showLogsToast("✓ Logs copiés dans le presse-papier !");
+                const fb = document.getElementById('logsCopyFeedback');
+                if (fb) {
+                    fb.classList.remove('hidden');
+                    setTimeout(() => fb.classList.add('hidden'), 3000);
+                }
+            } catch (e) {
+                if (ta) {
+                    ta.select();
+                    document.execCommand('copy');
+                    showLogsToast("✓ Logs copiés !");
+                }
+            }
+        }
+
+        function downloadLogs(format) {
+            let content, mime, filename;
+            const now = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+            if (format === 'json') {
+                content = JSON.stringify(detailedLogs, null, 2);
+                mime = 'application/json';
+                filename = `mmove_logs_${now}.json`;
+            } else {
+                content = generateLogsText();
+                mime = 'text/plain;charset=utf-8';
+                filename = `mmove_logs_${now}.txt`;
+            }
+            const blob = new Blob([content], { type: mime });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showLogsToast(`✓ Fichier ${filename} téléchargé !`);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeConversationLogsModal();
+        });
 
         function sendSuggestion(text) {
             messageInput.value = text;
@@ -693,6 +837,15 @@ class MmoveHandler(BaseHTTPRequestHandler):
             messageInput.style.height = 'auto';
             appendMessage('user', msg);
             history.push({ role: 'user', text: msg });
+
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            detailedLogs.push({
+                role: 'user',
+                time: timeStr,
+                timestamp: now.toISOString(),
+                text: msg
+            });
 
             // Indicateur de chargement
             const loadingId = appendLoading();
@@ -712,9 +865,33 @@ class MmoveHandler(BaseHTTPRequestHandler):
 
                 appendMessage('model', data.text, data.panels, data.timing, data.campaign_plan);
                 history.push({ role: 'model', text: data.text });
+
+                const modelNow = new Date();
+                const modelTimeStr = modelNow.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                detailedLogs.push({
+                    role: 'model',
+                    time: modelTimeStr,
+                    timestamp: modelNow.toISOString(),
+                    text: data.text,
+                    extracted: data.extracted || null,
+                    client_name: data.client_name || null,
+                    timing: data.timing || null,
+                    panels_count: (data.panels || []).length,
+                    panels_summary: (data.panels || []).map(p => `#${p.id || p.remorque} (${p.ville || ''} - ${p.axe_routier || p.direction || ''})`),
+                    campaign_plan: data.campaign_plan ? {
+                        periods: data.campaign_plan.periods,
+                        pdf_url: data.campaign_plan.pdf_url,
+                        summary: data.campaign_plan.summary
+                    } : null
+                });
             } catch (err) {
                 removeLoading(loadingId);
                 appendMessage('model', "Une erreur réseau est survenue. Veuillez réessayer dans quelques instants.");
+                detailedLogs.push({
+                    role: 'error',
+                    time: new Date().toLocaleTimeString('fr-FR'),
+                    text: err ? err.toString() : "Erreur réseau"
+                });
             } finally {
                 sendBtn.disabled = false;
                 messageInput.focus();
@@ -1412,6 +1589,56 @@ class MmoveHandler(BaseHTTPRequestHandler):
 
         window.addEventListener('DOMContentLoaded', initLeafletMap);
     </script>
+
+    <!-- TOAST NOTIFICATION LOGS -->
+    <div id="logsToast" class="fixed bottom-5 right-5 z-50 transform translate-y-10 opacity-0 pointer-events-none transition-all duration-300 bg-slate-900/95 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-lg border border-slate-700 flex items-center gap-2">
+        <i class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="logsToastMsg">Logs copiés dans le presse-papier !</span>
+    </div>
+
+    <!-- MODAL LOGS DE CONVERSATION (Discret) -->
+    <div id="logsModal" onclick="if(event.target === this) closeConversationLogsModal()" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in duration-200">
+            <!-- Modal Header -->
+            <div class="px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-7 h-7 rounded-lg bg-[#F4920D]/10 text-[#F4920D] flex items-center justify-center text-xs font-bold border border-[#F4920D]/20">
+                        <i class="fa-solid fa-code"></i>
+                    </span>
+                    <div>
+                        <h3 class="text-xs font-bold text-slate-900 dark:text-white">Logs d'échanges de la conversation</h3>
+                        <p class="text-[10px] text-slate-500 dark:text-slate-400">Copiez ce contenu pour le transmettre directement à l'assistant IA</p>
+                    </div>
+                </div>
+                <button onclick="closeConversationLogsModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+
+            <!-- Modal Content : Textarea pré-rempli et sélectionnable -->
+            <div class="p-4 flex-1 flex flex-col min-h-0">
+                <textarea id="logsTextarea" readonly class="w-full flex-1 p-3.5 font-mono text-[11px] leading-relaxed bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-800 rounded-xl resize-none focus:outline-none focus:ring-1 focus:ring-[#F4920D] select-all overflow-y-auto" rows="14"></textarea>
+            </div>
+
+            <!-- Modal Footer : Actions rapides -->
+            <div class="px-5 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between gap-2">
+                <span id="logsCopyFeedback" class="text-xs text-emerald-600 dark:text-emerald-400 font-semibold hidden flex items-center gap-1">
+                    <i class="fa-solid fa-check"></i> Copié dans le presse-papier !
+                </span>
+                <div class="flex items-center gap-2 ml-auto">
+                    <button onclick="downloadLogs('txt')" class="px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-download"></i> .TXT
+                    </button>
+                    <button onclick="downloadLogs('json')" class="px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-file-code"></i> .JSON
+                    </button>
+                    <button id="logsCopyBtn" onclick="copyConversationLogs()" class="px-4 py-1.5 text-xs font-bold rounded-xl bg-gradient-to-r from-[#F4920D] to-[#FF5B34] text-white shadow-xs hover:brightness-110 active:scale-95 transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-copy"></i> Copier les logs
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>"""
             self.wfile.write(html_content.encode("utf-8"))

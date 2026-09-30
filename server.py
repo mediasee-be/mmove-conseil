@@ -216,12 +216,12 @@ class MmoveHandler(BaseHTTPRequestHandler):
             display: flex;
             flex-direction: column;
             align-items: center;
-            transform: translate(-50%, -100%);
             cursor: pointer;
-            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transform-origin: 20px 15px;
+            transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
         .map-pin-container:hover {
-            transform: translate(-50%, -115%) scale(1.1);
+            transform: scale(1.15);
             z-index: 9999 !important;
         }
         .map-pin-circle {
@@ -1332,8 +1332,9 @@ class MmoveHandler(BaseHTTPRequestHandler):
                                 <div class="map-pin-badge">#${panelId}</div>
                             </div>
                         `,
-                        iconSize: [30, 42],
-                        iconAnchor: [15, 40]
+                        iconSize: [40, 48],
+                        iconAnchor: [20, 15],
+                        popupAnchor: [0, -18]
                     });
 
                     const marker = L.marker([lat, lng], { icon: pinIcon, zIndexOffset: 1000 + num });
@@ -1386,7 +1387,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
             if (bounds.length > 0) {
                 setTimeout(() => {
                     map.invalidateSize();
-                    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+                    map.fitBounds(bounds, { padding: [60, 60], maxZoom: 14 });
                 }, 100);
             }
         }

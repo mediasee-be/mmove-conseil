@@ -954,7 +954,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
                        class="btn-pdf inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#F4920D] to-[#FF5B34] font-bold text-xs shadow-xs hover:brightness-110 active:scale-95 transition-all shrink-0"
                        style="color: #ffffff !important; text-decoration: none !important;">
                         <i class="fa-solid fa-file-pdf text-sm" style="color: #ffffff !important;"></i>
-                        <span style="color: #ffffff !important;">Télécharger le Plan Média (PDF A4 Paysage)</span>
+                        <span style="color: #ffffff !important;">Télécharger le PDF</span>
                     </a>` : ''}
                 </div>
 

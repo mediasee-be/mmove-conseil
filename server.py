@@ -32,7 +32,11 @@ class MmoveHandler(BaseHTTPRequestHandler):
         self._set_headers(200, "text/html; charset=utf-8")
 
     def do_GET(self):
-        if self.path == "/api/health":
+        parsed = urllib.parse.urlparse(self.path)
+        req_path = parsed.path
+        query_params = urllib.parse.parse_qs(parsed.query)
+
+        if req_path == "/api/health":
             self._set_headers(200)
             sync_info = coordinator.sync.get_summary()
             trailers_count = len(coordinator.engine.trailers)
@@ -48,14 +52,14 @@ class MmoveHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(res, ensure_ascii=False).encode("utf-8"))
             return
 
-        if self.path == "/api/sync/status":
+        if req_path == "/api/sync/status":
             self._set_headers(200)
             sync_info = coordinator.sync.get_summary()
             self.wfile.write(json.dumps(sync_info, ensure_ascii=False).encode("utf-8"))
             return
 
         # Configuration de l'authentification Google
-        if self.path == "/api/auth/config":
+        if req_path == "/api/auth/config":
             self._set_headers(200)
             cfg = {
                 "google_client_id": os.getenv("GOOGLE_CLIENT_ID", "")
@@ -64,9 +68,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
             return
 
         # Référentiel des commerciaux (Réservé aux Administrateurs pour les filtres)
-        if self.path.startswith("/api/salespeople"):
-            parsed_url = urllib.parse.urlparse(self.path)
-            query_params = urllib.parse.parse_qs(parsed_url.query)
+        if req_path.startswith("/api/salespeople"):
             user_id = query_params.get("user_id", [None])[0]
 
             self._set_headers(200)
@@ -80,9 +82,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
             return
 
         # Liste des dossiers (filtrée par droits commerciaux ou vue globale admin)
-        if self.path.startswith("/api/dossiers"):
-            parsed_url = urllib.parse.urlparse(self.path)
-            query_params = urllib.parse.parse_qs(parsed_url.query)
+        if req_path.startswith("/api/dossiers"):
             user_id = query_params.get("user_id", [None])[0]
             filter_sp = query_params.get("filter", [None])[0]
 
@@ -95,9 +95,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
             return
 
         # Détail d'un dossier spécifique pour rechargement
-        if self.path.startswith("/api/dossier"):
-            parsed_url = urllib.parse.urlparse(self.path)
-            query_params = urllib.parse.parse_qs(parsed_url.query)
+        if req_path.startswith("/api/dossier"):
             dossier_id = query_params.get("id", [None])[0]
             user_id = query_params.get("user_id", [None])[0]
 
@@ -116,7 +114,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(dossier, ensure_ascii=False).encode("utf-8"))
             return
 
-        if self.path == "/api/network-trailers":
+        if req_path == "/api/network-trailers":
             self._set_headers(200)
             network = []
             trailers_iterable = coordinator.engine.trailers.values() if isinstance(coordinator.engine.trailers, dict) else coordinator.engine.trailers
@@ -136,8 +134,8 @@ class MmoveHandler(BaseHTTPRequestHandler):
             return
 
         # Cartes géographiques haute définition générées pour les campagnes
-        if self.path.startswith("/api/map/"):
-            filename = os.path.basename(self.path.split("?")[0])
+        if req_path.startswith("/api/map/"):
+            filename = os.path.basename(req_path)
             map_path = os.path.join("data", "maps", filename)
             if os.path.exists(map_path) and os.path.isfile(map_path):
                 self.send_response(200)
@@ -154,12 +152,10 @@ class MmoveHandler(BaseHTTPRequestHandler):
                 return
 
         # Téléchargement du Plan Média PDF (A4 Paysage)
-        if self.path.startswith("/api/download-plan-pdf") or self.path.startswith("/api/pdf/"):
-            parsed = urllib.parse.urlparse(self.path)
-            query_params = urllib.parse.parse_qs(parsed.query)
+        if req_path == "/api/download-plan-pdf" or req_path.startswith("/api/pdf/"):
             filename = query_params.get("file", [None])[0]
             if not filename:
-                filename = os.path.basename(parsed.path)
+                filename = os.path.basename(req_path)
             
             clean_filename = os.path.basename(filename)
             pdf_path = os.path.join("data", "pdf", clean_filename)
@@ -178,8 +174,8 @@ class MmoveHandler(BaseHTTPRequestHandler):
                 return
 
         # Fichiers statiques (images, logos, avatars)
-        if self.path.startswith("/static/"):
-            rel_path = self.path.lstrip("/")
+        if req_path.startswith("/static/"):
+            rel_path = req_path.lstrip("/")
             # Sécurité anti-traversal
             clean_path = os.path.normpath(rel_path)
             if clean_path.startswith("static/") and os.path.exists(clean_path) and os.path.isfile(clean_path):
@@ -206,7 +202,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
                 self.wfile.write(b"Fichier non trouve")
                 return
 
-        if self.path == "/favicon.ico":
+        if req_path == "/favicon.ico":
             icon_path = "static/bot-avatar.png"
             if os.path.exists(icon_path):
                 self.send_response(200)
@@ -217,8 +213,8 @@ class MmoveHandler(BaseHTTPRequestHandler):
                     self.wfile.write(f.read())
                 return
 
-        # Interface Web interactive locale
-        if self.path == "/" or self.path == "/index.html":
+        # Interface Web interactive locale (supporte /, /?, /index.html, etc.)
+        if req_path in ("", "/", "/index.html"):
             self._set_headers(200, "text/html; charset=utf-8")
             html_content = """<!DOCTYPE html>
 <html lang="fr" class="light">
@@ -1787,11 +1783,15 @@ class MmoveHandler(BaseHTTPRequestHandler):
         }
 
         async function handleEmailLoginSubmit(event) {
-            if (event) event.preventDefault();
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
             const emailInput = document.getElementById('loginEmailInput');
             const email = (emailInput ? emailInput.value : '').trim();
-            if (!email) return;
+            if (!email) return false;
             await submitAuthPayload({ email: email });
+            return false;
         }
 
         async function loginDirectCorentin() {
@@ -2224,7 +2224,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
                 </div>
 
                 <!-- Formulaire email Workspace -->
-                <form id="loginEmailForm" onsubmit="handleEmailLoginSubmit(event)" class="space-y-3">
+                <form id="loginEmailForm" onsubmit="handleEmailLoginSubmit(event); return false;" action="javascript:void(0);" method="POST" class="space-y-3">
                     <div>
                         <label for="loginEmailInput" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                             Adresse email Workspace
@@ -2275,8 +2275,11 @@ class MmoveHandler(BaseHTTPRequestHandler):
         self.wfile.write(b'{"error": "Not found"}')
 
     def do_POST(self):
+        parsed = urllib.parse.urlparse(self.path)
+        req_path = parsed.path
+
         # Authentification Google Workspace (@mediasee.be)
-        if self.path == "/api/auth/login":
+        if req_path == "/api/auth/login":
             content_length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(content_length)
             try:
@@ -2295,7 +2298,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"status": "error", "message": str(e)}, ensure_ascii=False).encode("utf-8"))
             return
 
-        if self.path == "/api/chat":
+        if req_path == "/api/chat":
             content_length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(content_length)
             try:

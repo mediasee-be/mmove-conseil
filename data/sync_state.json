@@ -1,18 +1,12 @@
 {
   "last_panels_check": 1790241331.118398,
-  "last_dispo_check": 1790763405.6121228,
+  "last_dispo_check": 1790767042.684907,
   "last_panels_updated": 1790241331.118398,
-  "last_dispo_updated": 1790763405.6121228,
+  "last_dispo_updated": 1790767042.684907,
   "panels_interval_sec": 604800,
   "dispo_interval_sec": 3600,
   "status": "idle",
   "history": [
-    {
-      "timestamp": "2026-09-27T12:18:49.509897",
-      "action": "VERIF_DISPO_HORAIRE",
-      "details": "Disponibilités vérifiées : aucune modification détectée",
-      "updated": false
-    },
     {
       "timestamp": "2026-09-27T13:50:31.428407",
       "action": "VERIF_DISPO_HORAIRE",
@@ -303,6 +297,12 @@
     },
     {
       "timestamp": "2026-09-30T12:16:58.476292",
+      "action": "VERIF_DISPO_HORAIRE",
+      "details": "Disponibilités synchronisées avec succès depuis Google Sheets",
+      "updated": true
+    },
+    {
+      "timestamp": "2026-09-30T13:17:24.827524",
       "action": "VERIF_DISPO_HORAIRE",
       "details": "Disponibilités synchronisées avec succès depuis Google Sheets",
       "updated": true

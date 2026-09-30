@@ -54,10 +54,28 @@ class MmoveHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(sync_info, ensure_ascii=False).encode("utf-8"))
             return
 
-        # Référentiel des commerciaux synchronisé Google Sheets
-        if self.path == "/api/salespeople":
+        # Configuration de l'authentification Google
+        if self.path == "/api/auth/config":
             self._set_headers(200)
-            sp_list = coordinator.salesperson_service.get_all()
+            cfg = {
+                "google_client_id": os.getenv("GOOGLE_CLIENT_ID", "")
+            }
+            self.wfile.write(json.dumps(cfg).encode("utf-8"))
+            return
+
+        # Référentiel des commerciaux (Réservé aux Administrateurs pour les filtres)
+        if self.path.startswith("/api/salespeople"):
+            parsed_url = urllib.parse.urlparse(self.path)
+            query_params = urllib.parse.parse_qs(parsed_url.query)
+            user_id = query_params.get("user_id", [None])[0]
+
+            self._set_headers(200)
+            if user_id and coordinator.salesperson_service.is_admin(user_id):
+                sp_list = coordinator.salesperson_service.get_all()
+            elif user_id:
+                sp_list = [coordinator.salesperson_service.get(user_id)]
+            else:
+                sp_list = []
             self.wfile.write(json.dumps(sp_list, ensure_ascii=False).encode("utf-8"))
             return
 
@@ -242,6 +260,8 @@ class MmoveHandler(BaseHTTPRequestHandler):
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Marked.js for Markdown Rendering -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Google Identity Services (OAuth 2.0 / Sign In with Google) -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <!-- Leaflet CSS & JS for Interactive Map -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
@@ -474,13 +494,32 @@ class MmoveHandler(BaseHTTPRequestHandler):
                 <span id="dossiersCountBadge" class="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#F4920D] text-white">0</span>
             </button>
 
-            <!-- Profil Commercial Actif / Switcher -->
-            <button onclick="openProfileModal()" id="currentProfileBtn" title="Changer de commercial" class="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-200">
-                <span id="profileAvatar" class="w-6 h-6 rounded-lg bg-[#F4920D] text-white flex items-center justify-center text-[10px] font-black shadow-xs">DR</span>
-                <span id="profileName" class="font-bold hidden md:inline">David Rossomme</span>
-                <span id="profileRoleBadge" class="hidden text-[9px] px-1.5 py-0.2 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 font-extrabold uppercase border border-purple-500/20">Admin</span>
-                <i class="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
-            </button>
+            <!-- Profil Utilisateur Connecté & Menu Déconnexion -->
+            <div class="relative">
+                <button onclick="toggleUserDropdown()" id="currentProfileBtn" title="Menu utilisateur" class="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-xs">
+                    <span id="profileAvatar" class="w-6 h-6 rounded-lg bg-[#F4920D] text-white flex items-center justify-center text-[10px] font-black shadow-xs">CH</span>
+                    <span id="profileName" class="font-bold hidden md:inline">Corentin Hubert</span>
+                    <span id="profileRoleBadge" class="hidden text-[9px] px-1.5 py-0.2 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 font-extrabold uppercase border border-purple-500/20">Admin</span>
+                    <i class="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
+                </button>
+
+                <!-- Menu Déroulant Profil Individuel (Déconnexion, Infos) -->
+                <div id="userDropdownMenu" class="hidden absolute right-0 mt-2 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl p-3 z-50 animate-in fade-in zoom-in-95 duration-150">
+                    <div class="border-b border-slate-100 dark:border-slate-800 pb-2 mb-2">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Connecté avec Google</p>
+                        </div>
+                        <p id="userDropdownName" class="text-xs font-bold text-slate-900 dark:text-white">Corentin Hubert</p>
+                        <p id="userDropdownEmail" class="text-[11px] text-slate-500 dark:text-slate-400 truncate">corentin@mediasee.be</p>
+                        <p id="userDropdownRole" class="text-[10px] font-semibold text-[#F4920D] mt-1">👑 Administrateur M Move</p>
+                    </div>
+                    <button onclick="logoutUser()" class="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition flex items-center gap-2">
+                        <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                        <span>Se déconnecter</span>
+                    </button>
+                </div>
+            </div>
 
             <!-- Dark / Light Mode Toggle -->
             <button onclick="toggleDarkMode()" title="Changer le thème (Clair / Sombre)" class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition flex items-center justify-center">
@@ -935,7 +974,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
                         message: msg,
                         history: history,
                         client_name: clientVal,
-                        salesperson_id: currentUser ? currentUser.id : 'DR'
+                        salesperson_id: currentUser ? currentUser.id : 'CH'
                     })
                 });
                 const data = await res.json();
@@ -1677,134 +1716,210 @@ class MmoveHandler(BaseHTTPRequestHandler):
                 card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
         // ==========================================
-        // GESTION DU PROFIL COMMERCIAL & DES DOSSIERS
+        // AUTHENTIFICATION GOOGLE WORKSPACE & PROFIL
         // ==========================================
-        let currentUser = {
-            id: "DR",
-            initials: "DR",
-            name: "David Rossomme",
-            phone: "+32 477 38 40 20",
-            email: "david@mediasee.be",
-            is_admin: false
-        };
-        let salespeopleList = [];
+        let currentUser = null;
+        let adminSalespeopleList = [];
         let allDossiers = [];
 
-        async function initUserProfile() {
-            try {
-                const res = await fetch('/api/salespeople');
-                if (res.ok) {
-                    salespeopleList = await res.json();
+        async function initAuth() {
+            // Vérifier session locale persistée
+            const savedUserStr = localStorage.getItem('mmove_auth_user');
+            if (savedUserStr) {
+                try {
+                    currentUser = JSON.parse(savedUserStr);
+                } catch(e) {
+                    currentUser = null;
                 }
-            } catch (e) {
-                console.warn("Échec chargement commerciaux:", e);
             }
 
-            const savedId = localStorage.getItem('mmove_salesperson_id');
-            if (savedId && salespeopleList.length > 0) {
-                const found = salespeopleList.find(s => s.id === savedId || s.initials === savedId);
-                if (found) currentUser = found;
-            } else if (salespeopleList.length > 0) {
-                const defaultSp = salespeopleList.find(s => s.initials === 'DR') || salespeopleList[0];
-                currentUser = defaultSp;
-                localStorage.setItem('mmove_salesperson_id', currentUser.id);
+            if (currentUser && currentUser.id) {
+                onUserAuthenticated(currentUser);
+            } else {
+                showLoginModal();
             }
 
+            // Initialiser Google Identity Services
+            initGoogleGIS();
+        }
+
+        async function initGoogleGIS() {
+            try {
+                const cfgRes = await fetch('/api/auth/config');
+                if (cfgRes.ok) {
+                    const cfg = await cfgRes.json();
+                    if (cfg.google_client_id && window.google && window.google.accounts) {
+                        google.accounts.id.initialize({
+                            client_id: cfg.google_client_id,
+                            callback: handleGoogleCredentialResponse,
+                            auto_select: false
+                        });
+                        const btnContainer = document.getElementById('googleSignInBtn');
+                        if (btnContainer) {
+                            google.accounts.id.renderButton(btnContainer, {
+                                theme: "outline",
+                                size: "large",
+                                text: "signin_with",
+                                shape: "pill",
+                                width: 280
+                            });
+                        }
+                    }
+                }
+            } catch(e) {
+                console.warn("Google GIS non initialisé :", e);
+            }
+        }
+
+        function showLoginModal() {
+            const modal = document.getElementById('loginModal');
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        function hideLoginModal() {
+            const modal = document.getElementById('loginModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        async function handleGoogleCredentialResponse(response) {
+            if (!response || !response.credential) return;
+            await submitAuthPayload({ credential: response.credential });
+        }
+
+        async function handleEmailLoginSubmit(event) {
+            if (event) event.preventDefault();
+            const emailInput = document.getElementById('loginEmailInput');
+            const email = (emailInput ? emailInput.value : '').trim();
+            if (!email) return;
+            await submitAuthPayload({ email: email });
+        }
+
+        async function loginDirectCorentin() {
+            await submitAuthPayload({ email: 'corentin@mediasee.be' });
+        }
+
+        async function submitAuthPayload(payload) {
+            const errBox = document.getElementById('loginErrorMessage');
+            const errText = document.getElementById('loginErrorText');
+            if (errBox) errBox.classList.add('hidden');
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (res.ok && data.status === 'ok') {
+                    currentUser = data.user;
+                    localStorage.setItem('mmove_auth_user', JSON.stringify(currentUser));
+                    localStorage.setItem('mmove_salesperson_id', currentUser.id);
+                    onUserAuthenticated(currentUser);
+                    hideLoginModal();
+                    showLogsToast(`✓ Connecté : ${currentUser.name} (${currentUser.is_admin ? 'Admin' : 'Conseiller'})`);
+                } else {
+                    if (errBox && errText) {
+                        errText.textContent = data.message || "Erreur de connexion. Vérifiez votre adresse.";
+                        errBox.classList.remove('hidden');
+                    }
+                }
+            } catch(err) {
+                if (errBox && errText) {
+                    errText.textContent = "Erreur de communication avec le serveur d'authentification.";
+                    errBox.classList.remove('hidden');
+                }
+            }
+        }
+
+        async function onUserAuthenticated(user) {
             updateProfileUI();
+
+            // Si l'utilisateur est admin, charger la liste des commerciaux uniquement pour son filtre superviseur
+            if (user.is_admin) {
+                try {
+                    const res = await fetch(`/api/salespeople?user_id=${encodeURIComponent(user.id)}`);
+                    if (res.ok) {
+                        adminSalespeopleList = await res.json();
+                        populateAdminSelect();
+                    }
+                } catch(e) {
+                    console.warn("Échec chargement liste commerciaux pour superviseur:", e);
+                }
+            } else {
+                adminSalespeopleList = [];
+            }
+
             loadDossiers();
         }
 
         function updateProfileUI() {
+            if (!currentUser) return;
             const avatar = document.getElementById('profileAvatar');
             const name = document.getElementById('profileName');
             const roleBadge = document.getElementById('profileRoleBadge');
             const drawerTitle = document.getElementById('dossiersDrawerTitle');
             const drawerSub = document.getElementById('dossiersDrawerSubtitle');
             const adminFilterContainer = document.getElementById('adminCommercialFilterContainer');
-            const adminSelect = document.getElementById('adminSalespersonSelect');
+
+            // Dropdown utilisateur
+            const dropName = document.getElementById('userDropdownName');
+            const dropEmail = document.getElementById('userDropdownEmail');
+            const dropRole = document.getElementById('userDropdownRole');
 
             if (avatar) avatar.textContent = currentUser.initials;
             if (name) name.textContent = currentUser.name;
+            if (dropName) dropName.textContent = currentUser.name;
+            if (dropEmail) dropEmail.textContent = currentUser.email || 'Google Workspace';
+            if (dropRole) dropRole.textContent = currentUser.is_admin ? '👑 Administrateur M Move' : '💼 Conseiller Commercial';
 
             if (currentUser.is_admin) {
                 if (roleBadge) roleBadge.classList.remove('hidden');
                 if (drawerTitle) drawerTitle.textContent = "Dossiers Commerciaux (Vue Superviseur)";
                 if (drawerSub) drawerSub.textContent = "Vue globale sur toutes les propositions de l'équipe";
                 if (adminFilterContainer) adminFilterContainer.classList.remove('hidden');
-
-                if (adminSelect) {
-                    adminSelect.innerHTML = '<option value="ALL">👥 Tous les commerciaux</option>';
-                    salespeopleList.forEach(sp => {
-                        const opt = document.createElement('option');
-                        opt.value = sp.initials;
-                        opt.textContent = `${sp.name} (${sp.initials})`;
-                        adminSelect.appendChild(opt);
-                    });
-                }
             } else {
                 if (roleBadge) roleBadge.classList.add('hidden');
                 if (drawerTitle) drawerTitle.textContent = "Mes Dossiers Commerciaux";
                 if (drawerSub) drawerSub.textContent = `Propositions de ${currentUser.name}`;
                 if (adminFilterContainer) adminFilterContainer.classList.add('hidden');
             }
-
-            const notice = document.getElementById('currentProfileNotice');
-            if (notice) notice.textContent = `Connecté : ${currentUser.name} (${currentUser.initials})`;
         }
 
-        function openProfileModal() {
-            const grid = document.getElementById('salespeopleGrid');
-            if (!grid) return;
+        function populateAdminSelect() {
+            const adminSelect = document.getElementById('adminSalespersonSelect');
+            if (!adminSelect || !currentUser || !currentUser.is_admin) return;
 
-            grid.innerHTML = '';
-            salespeopleList.forEach(sp => {
-                const isSelected = sp.initials === currentUser.initials;
-                const card = document.createElement('div');
-                card.className = `p-3.5 rounded-2xl border cursor-pointer transition flex items-center justify-between gap-3 ${
-                    isSelected 
-                        ? 'border-[#F4920D] bg-amber-50/60 dark:bg-amber-950/30 ring-1 ring-[#F4920D]' 
-                        : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`;
-                card.onclick = () => switchUserProfile(sp.initials);
-
-                const initialsBg = isSelected ? 'bg-[#F4920D] text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200';
-                card.innerHTML = `
-                    <div class="flex items-center gap-3 min-w-0">
-                        <div class="w-10 h-10 rounded-xl ${initialsBg} flex items-center justify-center font-black text-sm shrink-0 shadow-xs">
-                            ${sp.initials}
-                        </div>
-                        <div class="min-w-0">
-                            <div class="flex items-center gap-1.5">
-                                <h4 class="text-xs font-bold text-slate-900 dark:text-white truncate">${sp.name}</h4>
-                                ${sp.is_admin ? '<span class="text-[9px] px-1.5 py-0.2 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 font-extrabold uppercase border border-purple-500/20">Admin</span>' : ''}
-                            </div>
-                            <p class="text-[10px] text-slate-500 dark:text-slate-400 truncate">${sp.phone || sp.email || 'Commercial M Move'}</p>
-                        </div>
-                    </div>
-                    ${isSelected ? '<i class="fa-solid fa-circle-check text-[#F4920D] text-base shrink-0"></i>' : '<i class="fa-solid fa-chevron-right text-slate-300 dark:text-slate-600 text-xs shrink-0"></i>'}
-                `;
-                grid.appendChild(card);
+            adminSelect.innerHTML = '<option value="ALL">👥 Tous les commerciaux</option>';
+            adminSalespeopleList.forEach(sp => {
+                const opt = document.createElement('option');
+                opt.value = sp.initials;
+                opt.textContent = `${sp.name} (${sp.initials})`;
+                adminSelect.appendChild(opt);
             });
-
-            const modal = document.getElementById('profileModal');
-            if (modal) modal.classList.remove('hidden');
         }
 
-        function closeProfileModal() {
-            const modal = document.getElementById('profileModal');
-            if (modal) modal.classList.add('hidden');
+        function toggleUserDropdown() {
+            const menu = document.getElementById('userDropdownMenu');
+            if (menu) menu.classList.toggle('hidden');
         }
 
-        function switchUserProfile(initials) {
-            const found = salespeopleList.find(s => s.initials === initials || s.id === initials);
-            if (!found) return;
+        // Fermer le dropdown de profil si on clique ailleurs
+        document.addEventListener('click', (e) => {
+            const btn = document.getElementById('currentProfileBtn');
+            const menu = document.getElementById('userDropdownMenu');
+            if (btn && menu && !btn.contains(e.target) && !menu.contains(e.target)) {
+                menu.classList.add('hidden');
+            }
+        });
 
-            currentUser = found;
-            localStorage.setItem('mmove_salesperson_id', currentUser.id);
-            updateProfileUI();
-            closeProfileModal();
-            loadDossiers();
-            showLogsToast(`✓ Profil actif : ${currentUser.name} (${currentUser.initials})`);
+        function logoutUser() {
+            currentUser = null;
+            localStorage.removeItem('mmove_auth_user');
+            localStorage.removeItem('mmove_salesperson_id');
+            const menu = document.getElementById('userDropdownMenu');
+            if (menu) menu.classList.add('hidden');
+            showLoginModal();
+            showLogsToast("Déconnecté.");
         }
 
         // --- GESTION DU TIROIR DES DOSSIERS ---
@@ -1983,7 +2098,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
 
         window.addEventListener('DOMContentLoaded', () => {
             initLeafletMap();
-            initUserProfile();
+            initAuth();
         });
     </script>
 
@@ -2085,31 +2200,69 @@ class MmoveHandler(BaseHTTPRequestHandler):
         </div>
     </aside>
 
-    <!-- MODAL CHOIX DU COMMERCIAL / SWITCHER -->
-    <div id="profileModal" onclick="if(event.target === this) closeProfileModal()" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden animate-in fade-in duration-200">
-            <div class="p-5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between">
-                <div>
-                    <h3 class="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
-                        <i class="fa-solid fa-users text-[#F4920D]"></i> Espace Commercial M Move
-                    </h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Sélectionnez votre profil pour personnaliser vos propositions et PDF</p>
+    <!-- ÉCRAN D'AUTHENTIFICATION GOOGLE WORKSPACE (@mediasee.be) -->
+    <div id="loginModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <!-- Header Logo & Titre -->
+            <div class="p-6 text-center border-b border-slate-100 dark:border-slate-800 bg-gradient-to-b from-amber-500/5 to-transparent">
+                <div class="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gradient-to-tr from-[#F4920D] to-[#FF5B34] flex items-center justify-center text-white shadow-lg shadow-orange-500/20">
+                    <span class="font-black text-2xl tracking-tighter">m</span>
                 </div>
-                <button onclick="closeProfileModal()" class="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-200/50 dark:hover:bg-slate-700/50">
-                    <i class="fa-solid fa-xmark text-sm"></i>
-                </button>
+                <h2 class="text-base font-black text-slate-900 dark:text-white">Espace Commercial M Move</h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Connexion réservée aux comptes Google Workspace</p>
+                <div class="inline-flex items-center gap-1.5 px-3 py-1 mt-3 rounded-full bg-slate-100 dark:bg-slate-800 text-[11px] font-semibold text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-2xs">
+                    <i class="fa-brands fa-google text-red-500 text-xs"></i>
+                    <span>@mediasee.be</span>
+                </div>
             </div>
 
-            <!-- Grille des Commerciaux -->
-            <div id="salespeopleGrid" class="p-5 grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto">
-                <!-- Rempli dynamiquement -->
+            <!-- Corps : Connexion Google ou Email Workspace -->
+            <div class="p-6 space-y-4">
+                <!-- Bouton officiel Google Sign-In (initialisé automatiquement si Client ID présent) -->
+                <div id="googleSignInWrapper" class="flex justify-center empty:hidden">
+                    <div id="googleSignInBtn"></div>
+                </div>
+
+                <!-- Formulaire email Workspace -->
+                <form id="loginEmailForm" onsubmit="handleEmailLoginSubmit(event)" class="space-y-3">
+                    <div>
+                        <label for="loginEmailInput" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                            Adresse email Workspace
+                        </label>
+                        <div class="relative">
+                            <i class="fa-solid fa-envelope absolute left-3.5 top-3 text-xs text-slate-400"></i>
+                            <input type="email" id="loginEmailInput" placeholder="votre-adresse@mediasee.be" required
+                                class="w-full pl-9 pr-3 py-2 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#F4920D] text-slate-900 dark:text-white transition">
+                        </div>
+                    </div>
+
+                    <button type="submit" id="loginSubmitBtn"
+                        class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#F4920D] to-[#FF5B34] text-white text-xs font-bold shadow-md hover:brightness-105 active:scale-98 transition flex items-center justify-center gap-2">
+                        <i class="fa-brands fa-google"></i>
+                        <span>Se connecter avec Google Workspace</span>
+                    </button>
+                </form>
+
+                <!-- Raccourci rapide Corentin (Admin) -->
+                <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <button type="button" onclick="loginDirectCorentin()"
+                        class="w-full py-2 px-3 rounded-xl bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 text-xs font-bold border border-purple-200 dark:border-purple-800 transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-crown text-amber-500"></i>
+                        <span>Connexion rapide : Corentin Hubert (Admin)</span>
+                    </button>
+                </div>
+
+                <!-- Message d'erreur -->
+                <div id="loginErrorMessage" class="hidden p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-xs text-red-600 dark:text-red-400 font-medium flex items-center gap-2">
+                    <i class="fa-solid fa-circle-exclamation text-sm shrink-0"></i>
+                    <span id="loginErrorText">Erreur d'authentification</span>
+                </div>
             </div>
 
-            <div class="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between text-xs text-slate-500">
-                <span class="flex items-center gap-1.5">
-                    <i class="fa-solid fa-shield-halved text-[#F4920D]"></i> Coordonnées synchronisées Google Sheets
-                </span>
-                <span id="currentProfileNotice" class="font-bold text-slate-700 dark:text-slate-300"></span>
+            <!-- Footer Sécurité -->
+            <div class="p-3.5 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-100 dark:border-slate-800 text-center text-[11px] text-slate-400 dark:text-slate-500 flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-shield-halved text-[#F4920D]"></i>
+                <span>Authentification sécurisée · Dossiers commerciaux étanches</span>
             </div>
         </div>
     </div>
@@ -2122,6 +2275,26 @@ class MmoveHandler(BaseHTTPRequestHandler):
         self.wfile.write(b'{"error": "Not found"}')
 
     def do_POST(self):
+        # Authentification Google Workspace (@mediasee.be)
+        if self.path == "/api/auth/login":
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length)
+            try:
+                data = json.loads(body.decode("utf-8")) if body else {}
+                email = data.get("email")
+                credential = data.get("credential")
+
+                user = coordinator.salesperson_service.authenticate(email=email, credential_jwt=credential)
+                self._set_headers(200)
+                self.wfile.write(json.dumps({"status": "ok", "user": user}, ensure_ascii=False).encode("utf-8"))
+            except PermissionError as pe:
+                self._set_headers(403)
+                self.wfile.write(json.dumps({"status": "error", "message": str(pe)}, ensure_ascii=False).encode("utf-8"))
+            except Exception as e:
+                self._set_headers(400)
+                self.wfile.write(json.dumps({"status": "error", "message": str(e)}, ensure_ascii=False).encode("utf-8"))
+            return
+
         if self.path == "/api/chat":
             content_length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(content_length)

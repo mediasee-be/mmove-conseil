@@ -815,44 +815,52 @@ class MmoveHandler(BaseHTTPRequestHandler):
                 return "Aucun échange enregistré dans cette session.";
             }
 
-            let out = "=== LOGS DE CONVERSATION M MOVE CONSEIL ===\n";
-            out += `Date d'export : ${new Date().toLocaleString('fr-FR')}\n`;
-            out += `Nombre total d'événements : ${detailedLogs.length}\n`;
-            out += "==========================================\n\n";
+            const NL = String.fromCharCode(10);
+            const lines = [];
+            lines.push("=== LOGS DE CONVERSATION M MOVE CONSEIL ===");
+            lines.push("Date d'export : " + new Date().toLocaleString('fr-FR'));
+            lines.push("Nombre total d'événements : " + detailedLogs.length);
+            lines.push("==========================================");
+            lines.push("");
 
             detailedLogs.forEach((item) => {
                 if (item.role === 'user') {
-                    out += `--------------------------------------------------\n`;
-                    out += `[${item.time}] 👤 UTILISATEUR :\n`;
-                    out += `${item.text}\n\n`;
+                    lines.push("--------------------------------------------------");
+                    lines.push(`[${item.time}] 👤 UTILISATEUR :`);
+                    lines.push(item.text);
+                    lines.push("");
                 } else if (item.role === 'model') {
-                    out += `[${item.time}] 🤖 ASSISTANT M MOVE :\n`;
+                    lines.push(`[${item.time}] 🤖 ASSISTANT M MOVE :`);
                     if (item.timing && item.timing.elapsed_ms) {
-                        out += `⏱️ Temps de réponse : ${(item.timing.elapsed_ms / 1000).toFixed(2)}s\n`;
+                        lines.push(`⏱️ Temps de réponse : ${(item.timing.elapsed_ms / 1000).toFixed(2)}s`);
                     }
                     if (item.extracted && item.extracted.intent) {
-                        out += `🎯 Intention détectée : ${item.extracted.intent}\n`;
-                        if (item.extracted.client_name) out += `🏢 Client : ${item.extracted.client_name}\n`;
-                        if (item.extracted.target_periods && item.extracted.target_periods.length) out += `📅 Périodes : ${item.extracted.target_periods.join(', ')}\n`;
-                        if (item.extracted.city) out += `📍 Ville : ${item.extracted.city}\n`;
-                        if (item.extracted.n_faces) out += `🔢 Faces : ${item.extracted.n_faces}\n`;
+                        lines.push(`🎯 Intention détectée : ${item.extracted.intent}`);
+                        if (item.extracted.client_name) lines.push(`🏢 Client : ${item.extracted.client_name}`);
+                        if (item.extracted.target_periods && item.extracted.target_periods.length) lines.push(`📅 Périodes : ${item.extracted.target_periods.join(', ')}`);
+                        if (item.extracted.city) lines.push(`📍 Ville : ${item.extracted.city}`);
+                        if (item.extracted.n_faces) lines.push(`🔢 Faces : ${item.extracted.n_faces}`);
                     }
                     if (item.panels_summary && item.panels_summary.length > 0) {
-                        out += `🏷️ Remorques (${item.panels_count}) : ${item.panels_summary.join(', ')}\n`;
+                        lines.push(`🏷️ Remorques (${item.panels_count}) : ${item.panels_summary.join(', ')}`);
                     }
                     if (item.campaign_plan && item.campaign_plan.pdf_url) {
-                        out += `📄 Plan Média PDF : ${item.campaign_plan.pdf_url}\n`;
+                        lines.push(`📄 Plan Média PDF : ${item.campaign_plan.pdf_url}`);
                     }
-                    out += `\n💬 TEXTE DE LA RÉPONSE :\n`;
-                    out += `${item.text}\n\n`;
+                    lines.push("");
+                    lines.push("💬 TEXTE DE LA RÉPONSE :");
+                    lines.push(item.text);
+                    lines.push("");
                 } else if (item.role === 'error') {
-                    out += `[${item.time}] ⚠️ ERREUR :\n${item.text}\n\n`;
+                    lines.push(`[${item.time}] ⚠️ ERREUR :`);
+                    lines.push(item.text);
+                    lines.push("");
                 }
             });
 
-            out += `==========================================\n`;
-            out += `=== FIN DES LOGS ===\n`;
-            return out;
+            lines.push("==========================================");
+            lines.push("=== FIN DES LOGS ===");
+            return lines.join(NL);
         }
 
         async function openConversationLogsModal() {

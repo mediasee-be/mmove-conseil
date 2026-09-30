@@ -125,18 +125,34 @@ class SalesAgent:
         extracted_info: Dict[str, Any],
         candidate_panels: List[Dict[str, Any]],
         conversation_history: Optional[List[Dict[str, Any]]] = None,
-        campaign_plan: Optional[Dict[str, Any]] = None
+        campaign_plan: Optional[Dict[str, Any]] = None,
+        availability_pdf_url: Optional[str] = None,
+        can_expand_zone: bool = False,
+        peripheral_count: int = 0,
+        peripheral_cities: Optional[List[str]] = None
     ) -> str:
         """Génère la recommandation commerciale sur mesure."""
         user_mentions_face = any(w in user_message.lower() for w in ["face in", "face out", "faces in", "faces out", "face a", "face b", "face "])
         
-        # Si un plan multi-mois structuré est fourni, privilégier le pitch déterministe certifié
-        if campaign_plan and len(campaign_plan.get("months", [])) > 1:
+        # Si un plan multi-mois structuré est fourni ou s'il s'agit d'une recherche de dispo, privilégier le pitch déterministe certifié
+        is_dispo = (
+            extracted_info.get("intent") == "check_availability"
+            or any(w in user_message.lower() for w in ["dispo", "dispos", "disponibilit", "libre", "libres", "quand"])
+        )
+        is_motivation = (
+            extracted_info.get("intent") == "motivate_proposal"
+            or extracted_info.get("is_open_consultation")
+        )
+        if (campaign_plan and len(campaign_plan.get("months", [])) > 1) or is_dispo or is_motivation:
             return self._generate_fallback_response(
                 panels=candidate_panels,
                 extracted=extracted_info,
                 user_msg=user_message,
-                campaign_plan=campaign_plan
+                campaign_plan=campaign_plan,
+                availability_pdf_url=availability_pdf_url,
+                can_expand_zone=can_expand_zone,
+                peripheral_count=peripheral_count,
+                peripheral_cities=peripheral_cities
             )
         
         # Préparer le résumé synthétique des panneaux qualifiés
@@ -261,16 +277,169 @@ Rédige maintenant ta réponse commerciale selon les règles strictes suivantes 
                 pass
 
         # Fallback local
-        return self._generate_fallback_response(candidate_panels, extracted_info, user_message)
+        return self._generate_fallback_response(candidate_panels, extracted_info, user_message, campaign_plan=campaign_plan, availability_pdf_url=availability_pdf_url, can_expand_zone=can_expand_zone, peripheral_count=peripheral_count, peripheral_cities=peripheral_cities)
+
+    def get_axis_strategic_context(self, axe: str, ville: str, direction: str, freq: int) -> str:
+        """Fournit une justification concrète du rôle stratégique de captation de l'axe routier."""
+        axe_upper = (axe or "").upper()
+        v_upper = (ville or "").upper()
+
+        if "N25" in axe_upper or "GREZ" in axe_upper:
+            return "Axe pendulaire névralgique reliant Louvain-la-Neuve, Grez-Doiceau et le Brabant Wallon vers Wavre et la E411. Capte les flux intensifs domicile-travail aux heures de pointe du matin et du soir."
+        elif "N5" in axe_upper or "NALINNES" in axe_upper:
+            return "Pénétration sud majeure de l'agglomération de Charleroi reliant les zones résidentielles d'Entre-Sambre-et-Meuse aux bassins d'emploi métropolitains et aux pôles commerciaux (44 600 v/j)."
+        elif "N90" in axe_upper or "FLAWINNE" in axe_upper or "MALONNE" in axe_upper or "FLOREFFE" in axe_upper or "MOUSTIER" in axe_upper:
+            return "Colonne vertébrale du sillon Sambre-et-Meuse reliant Namur à la Basse-Sambre. Point de passage obligé des automobilistes circulant quotidiennement entre Sambreville, Floreffe et la capitale wallonne."
+        elif "N98" in axe_upper or "SOMBREFFE" in axe_upper or "SAMBREVILLE" in axe_upper:
+            return "Liaison structurante transversale reliant le bassin de Sambreville à l'autoroute E42 (21 150 v/j). Vitesse modérée et dégagement visuel assurant un temps d'attention optimal (4 à 5 secondes)."
+        elif "N4" in axe_upper:
+            return "Axe national historique sans péage à flux continu, assurant une exposition prolongée sur les trajets interurbains et les accès aux zonings commerciaux."
+        elif "E411" in axe_upper or "E42" in axe_upper or "E25" in axe_upper:
+            return "Approche et sortie d'échangeur autoroutier stratégique, captant les automobilistes en décélération vers les pôles économiques régionaux."
+        elif "N63" in axe_upper or "CONDROZ" in axe_upper:
+            return "Route du Condroz, axe pendulaire structurant reliant la province de Liège au sud namurois, drainant une population résidente à fort pouvoir d'achat."
+        elif "N922" in axe_upper or "FOSSES" in axe_upper:
+            return "Axe de liaison régional assurant le maillage entre les pôles de vie locaux et les axes de transit rapide, idéal pour l'ancrage de notoriété de proximité."
+        elif "N912" in axe_upper or "ÉGHEZÉE" in axe_upper or "EGHEZEE" in axe_upper:
+            return "Artère clé reliant le nord namurois aux axes autoroutiers, captant les flux ruraux et périurbains se dirigeant vers les centres urbains."
+        elif "N29" in axe_upper:
+            return "Chaussée de Charleroi / Tirlemont, artère interprovinciale majeure reliant le Brabant Wallon, Gembloux et le Namurois."
+        elif freq >= 30000:
+            return f"Grand axe de transit à très fort volume ({freq:,} véh./jour), offrant une émergence publicitaire maximale auprès d'un flux ininterrompu de conducteurs."
+        elif freq >= 15000:
+            return f"Axe structurant d'agglomération ({freq:,} véh./jour), idéal pour intercepter les résidents locaux lors de leurs déplacements quotidiens."
+        else:
+            return f"Emplacement stratégique de proximité ({freq:,} véh./jour) assurant un temps de lecture confortable et sans dispersion visuelle."
+
+    def generate_proposal_motivation(
+        self,
+        panels: List[Dict[str, Any]],
+        extracted_info: Dict[str, Any],
+        campaign_plan: Optional[Dict[str, Any]] = None,
+        client_name: Optional[str] = None,
+        user_message: str = ""
+    ) -> str:
+        """Génère une argumentation stratégique complète, motivant chaque panneau et la synergie du maillage."""
+        if not panels and campaign_plan and campaign_plan.get("months"):
+            panels = campaign_plan["months"][0].get("panels", [])
+
+        if not panels:
+            return "Aucun emplacement n'est actuellement sélectionné pour pouvoir en motiver le choix. Indiquez une ville ou un annonceur pour construire la proposition."
+
+        eff_client = client_name or extracted_info.get("client_name") or "votre annonceur"
+        is_known_client = bool(eff_client and eff_client.lower() not in ["partenaire", "votre annonceur", "client"])
+
+        # Déterminer la période
+        period_str = ""
+        if campaign_plan and campaign_plan.get("months"):
+            m_list = campaign_plan["months"]
+            if len(m_list) == 1:
+                period_str = f" pour {m_list[0].get('period_human', '')}"
+            else:
+                period_str = f" de {m_list[0].get('period_human', '')} à {m_list[-1].get('period_human', '')}"
+        elif extracted_info.get("target_periods"):
+            period_str = " en " + " & ".join([format_period_human(p) for p in extracted_info["target_periods"]])
+
+        lines = []
+
+        # 1. Introduction et Objectif Stratégique
+        if is_known_client and any(k in eff_client.lower() for k in ["toma", "marjorie", "immo"]):
+            lines.append(f"🎯 **Stratégie & Motivation pour {eff_client} (Immobilier & Habitat)**{period_str}\n")
+            lines.append(
+                "Pour une agence immobilière de référence, l'enjeu commercial de l'affichage 8m² repose sur un double levier :\n"
+                "1. **La captation de mandats exclusifs :** Être présent sur les trajets quotidiens des propriétaires résidents pour déclencher le réflexe d'appel lors d'un projet de vente.\n"
+                "2. **Le verrouillage des axes pendulaires majeurs :** Intercepter les navetteurs transitant entre le bassin résidentiel (Basse-Sambre / Floreffe / Charleroi) et les pôles d'emploi namurois et carolos.\n"
+            )
+        elif is_known_client:
+            lines.append(f"🎯 **Stratégie & Motivation de la proposition pour {eff_client}**{period_str}\n")
+            lines.append(
+                f"Ce dispositif a été conçu pour assurer à **{eff_client}** une visibilité de premier plan sur sa zone de chalandise naturelle, "
+                f"en combinant forte intensité de trafic, couverture multi-axes et émergence du format 8m² sur remorque routière.\n"
+            )
+        else:
+            lines.append(f"🎯 **Stratégie & Motivation de la sélection M Move**{period_str}\n")
+            lines.append(
+                "Cette proposition applique les principes fondamentaux de l'affichage routier temporaire : "
+                "un maillage multi-axes équilibré sans redondance, positionné sur les flux entrants et sortants stratégiques.\n"
+            )
+
+        # 2. Motivation détaillée panneau par panneau
+        lines.append("### 📍 Pourquoi ces emplacements ? (Motivation détaillée par axe) :\n")
+        total_freq = 0
+        total_ots = 0
+
+        for i, p in enumerate(panels, 1):
+            pid = p.get("id") or p.get("remorque")
+            ville = p.get("ville", "")
+            loc = p.get("localisation", "")
+            axe = p.get("axe_routier") or p.get("code_route") or "Axe local"
+            direction = p.get("direction_in") or p.get("direction_out") or p.get("direction") or "Double sens"
+            freq = p.get("frequentation_jour") or p.get("frequentation") or 0
+            ots = p.get("ots_mensuel") or p.get("ots") or int(freq * 30 * 1.2)
+            lien = p.get("lien") or f"https://remorquepublicitaire.be/remorque/{pid}"
+            dist_km = p.get("distance_km")
+            dist_str = f" (à {dist_km} km)" if dist_km is not None and dist_km > 0 else ""
+
+            total_freq += freq
+            total_ots += ots
+
+            freq_str = f"{freq:,}".replace(",", " ")
+            ots_str = f"{ots:,}".replace(",", " ")
+
+            rationale = self.get_axis_strategic_context(axe, ville, direction, freq)
+
+            lines.append(
+                f"**{i}. [#{pid} {ville} ({loc}) ↗️]({lien})** — {axe} (dir. {direction}){dist_str}\n"
+                f"• **Audience :** **{freq_str} véh./jour** (~{ots_str} OTS/mois)\n"
+                f"• **Motivation :** {rationale}\n"
+            )
+
+        # 3. Synergie et Portée Globale
+        total_freq_str = f"{total_freq:,}".replace(",", " ")
+        total_ots_str = f"{total_ots:,}".replace(",", " ")
+        n_faces = len(panels)
+
+        lines.append("### 📊 Synergie & Impact cumulé du dispositif :\n")
+        lines.append(
+            f"• **Complémentarité multi-axes (Portée nette) :** Chacune des {n_faces} faces est positionnée sur un axe ou un quadrant d'accès distinct. "
+            f"Cette absence délibérée de doublons évite de sur-exposer deux fois le même automobiliste et maximise le nombre d'individus uniques différents touchés.\n"
+            f"• **Puissance de contact :** **{total_freq_str} véhicules / jour** en visibilité frontale directe, soit **~{total_ots_str} occasions d'être vu (OTS)** sur le mois.\n"
+            f"• **Fréquence & Ancrage mémoriel :** Sur une campagne de 30 jours, un actif ou un riverain régulier effectue entre 20 et 25 passages devant le panneau. "
+            f"Cette répétition continue est la clé du passage de la visibilité passive à la prise de contact active.\n"
+        )
+
+        # 4. Conseil visuel et call to action
+        lines.append(
+            "💡 **Conseil d'impact visuel M Move :**\n"
+            "À 70-90 km/h, l'automobiliste dispose de 3 à 5 secondes de lecture utile. Privilégiez un message court (7 mots maximum), "
+            "une typographie bâton XXL sans empattement, un contraste fort (fond clair / lettrage sombre) et un numéro ou site court sans QR code.\n\n"
+            "👉 *Souhaitez-vous verrouiller une option sur cette sélection, ajuster l'un des emplacements ou télécharger le Plan Média officiel ?*"
+        )
+
+        return "\n".join(lines)
 
     def _generate_fallback_response(
         self,
         panels: List[Dict[str, Any]],
         extracted: Dict[str, Any],
         user_msg: str = "",
-        campaign_plan: Optional[Dict[str, Any]] = None
+        campaign_plan: Optional[Dict[str, Any]] = None,
+        availability_pdf_url: Optional[str] = None,
+        can_expand_zone: bool = False,
+        peripheral_count: int = 0,
+        peripheral_cities: Optional[List[str]] = None
     ) -> str:
         """Génère une réponse structurée épurée et directe."""
+        intent = extracted.get("intent", "")
+        if intent == "motivate_proposal" or extracted.get("is_open_consultation"):
+            return self.generate_proposal_motivation(
+                panels=panels,
+                extracted_info=extracted,
+                campaign_plan=campaign_plan,
+                client_name=extracted.get("client_name"),
+                user_message=user_msg
+            )
+
         if not panels and not (campaign_plan and campaign_plan.get("months")):
             return "Aucun emplacement correspondant à ces critères n'est disponible sur cette période. Souhaitez-vous élargir la recherche géographique ?"
 
@@ -291,61 +460,19 @@ Rédige maintenant ta réponse commerciale selon les règles strictes suivantes 
             total_faces = summary.get("total_faces_deployed", len(months) * 5)
             first_m = months[0].get("period_human", "")
             last_m = months[-1].get("period_human", "")
-
-            title = f"Plan de campagne multi-mois : {summary.get('count_per_month', 5)} faces{loc_str} — {first_m} à {last_m}"
-            intro = (
-                f"**{title}**\n\n"
-                f"Pour assurer une visibilité continue et percutante tout en évitant l'accoutumance des automobilistes, "
-                f"le dispositif applique une **rotation mensuelle des emplacements** : chaque mois bénéficie d'une sélection fraîche "
-                f"sur des axes complémentaires distincts, sans répétition consécutive au même endroit/direction.\n"
-            )
-            lines = [intro]
-
-            for m_idx, m in enumerate(months, 1):
-                p_human = m.get("period_human", "")
-                m_panels = m.get("panels", [])
-                m_stats = m.get("stats", {})
-                m_veh = m_stats.get("veh_per_day", 0)
-                m_ots = m_stats.get("ots_month", 0)
-                m_veh_str = f"{m_veh:,.0f}".replace(",", " ")
-                m_ots_str = f"{m_ots:,.0f}".replace(",", " ")
-
-                lines.append(f"### 📅 Mois {m_idx} — {p_human} · {len(m_panels)} faces *({m_veh_str} véh./j · ~{m_ots_str} OTS)*")
-                for p_i, p in enumerate(m_panels, 1):
-                    freq = p.get("frequentation_jour") or 0
-                    ots = p.get("ots_mensuel") or int(freq * 30 * 1.2)
-                    direction = p.get("direction_in") or p.get("direction_out") or "Double sens"
-                    axe_code = p.get("code_route") or p.get("axe_routier") or ""
-                    dist_km = p.get("distance_km")
-                    dist_str = f" ({dist_km} km)" if (dist_km is not None and dist_km > 0) else ""
-
-                    freq_str = f"{freq:,}".replace(",", " ")
-                    ots_str = f"{ots:,}".replace(",", " ")
-                    axe_display = f"{axe_code} " if axe_code else ""
-
-                    lines.append(
-                        f"**{p_i}.** [#{p['id']} {p['ville']} ({p['localisation']}) ↗️]({p['lien']}) — {axe_display}dir. {direction}{dist_str} · **{freq_str} v/j** *(~{ots_str} OTS)*"
-                    )
-                lines.append("")
+            loc_label = ', '.join(extracted.get("locations", [])) or "Wallonie"
 
             total_ots_str = f"{total_ots:,.0f}".replace(",", " ")
             avg_veh_str = f"{avg_veh:,.0f}".replace(",", " ")
-            lines.append(
-                f"**Synthèse du dispositif global ({len(months)} mois) :**\n"
-                f"• **Volume & Rotation :** {total_faces} faces déployées avec renouvellement mensuel sans saturation.\n"
-                f"• **Audience cumulée :** **~{avg_veh_str} véh./j** en moyenne · **~{total_ots_str} occasions d'être vu (OTS)** au total.\n"
+
+            return (
+                f"🎯 **Plan média configuré pour {loc_label} ({first_m} à {last_m})**\n\n"
+                f"Le dispositif complet de **{total_faces} faces** ({summary.get('count_per_month', 5)} faces/mois avec renouvellement mensuel) "
+                f"est disponible dans le listing central et sur la carte en vis-à-vis, avec l'ensemble des indicateurs d'audience (**~{avg_veh_str} véh./j** · **~{total_ots_str} OTS**).\n\n"
+                f"👉 Vous pouvez affiner la sélection à tout moment (ex : *« élargis vers Namur »*, *« remplace le panneau 2 »*) "
+                f"ou télécharger directement votre dossier PDF."
             )
 
-            first_deadline = months[0].get("deadline_full", "")
-            if first_deadline:
-                lines.append(
-                    f"*🗓️ Visuels bâche (390×200 cm) à fournir avant le **{first_deadline}** · Tournée de placement sur 3 jours ouvrables pour l'ensemble des placements.*\n"
-                )
-
-            lines.append(
-                "🗺️ *Les cartes d'implantation et le **Plan Média PDF A4 Paysage** sont disponibles ci-contre et au téléchargement ci-dessous.*"
-            )
-            return "\n".join(lines)
 
         if intent == "campaign_proposal":
             target_period_str = extracted.get("target_periods", [None])[0] if extracted.get("target_periods") else None
@@ -368,20 +495,29 @@ Rédige maintenant ta réponse commerciale selon les règles strictes suivantes 
                     deadline_str = "*🗓️ Visuels bâche (390×200 cm) à fournir avant le 15 du mois précédent · Tournée de placement sur 3 jours ouvrables pour l'ensemble des placements.*"
 
             n_faces = len(panels)
+            loc_label = ', '.join(extracted.get("locations", [])) or "Wallonie"
+            total_freq = sum(p.get("frequentation_jour") or 0 for p in panels)
+            total_ots = sum(p.get("ots_mensuel") or int((p.get("frequentation_jour") or 0) * 30 * 1.2) for p in panels)
+            total_freq_str = f"{total_freq:,}".replace(",", " ")
+            total_ots_str = f"{total_ots:,}".replace(",", " ")
+
+            if campaign_plan:
+                return (
+                    f"🎯 **Plan de campagne 8m² configuré : {n_faces} faces à {loc_label} — {period_human}**\n\n"
+                    f"Le dispositif complet de {n_faces} faces sur des axes stratégiques complémentaires est affiché dans le listing central et sur la carte ci-contre, "
+                    f"totalisant **~{total_freq_str} véh./j** et **~{total_ots_str} OTS**.\n\n"
+                    f"👉 Vous pouvez affiner la sélection à tout moment (ex : *« remplace le panneau 1 »*) ou télécharger votre document PDF."
+                )
+
             title = f"Plan de campagne 8m² : {n_faces} faces{loc_str} — {period_human}"
             intro = f"**{title}**\n\nPour assurer un maillage optimal de votre zone de chalandise, voici une sélection stratégique de {n_faces} faces réparties sur des axes complémentaires sans doublon d'axe :\n"
             lines = [intro]
-
-            total_freq = 0
-            total_ots = 0
 
             for p_i, p in enumerate(panels, 1):
                 dist_km = p.get("distance_km")
                 dist_str = f" ({dist_km} km)" if (dist_km is not None and dist_km > 0) else ""
                 freq = p.get("frequentation_jour") or 0
                 ots = p.get("ots_mensuel") or int(freq * 30 * 1.2)
-                total_freq += freq
-                total_ots += ots
 
                 freq_str = f"{freq:,}".replace(",", " ")
                 ots_str = f"{ots:,}".replace(",", " ")
@@ -393,8 +529,6 @@ Rédige maintenant ta réponse commerciale selon les règles strictes suivantes 
                     f"**{p_i}.** [#{p['id']} {p['ville']} ({p['localisation']}) ↗️]({p['lien']}) — {axe_display}dir. {direction}{dist_str} · **{freq_str} v/j** *(~{ots_str} OTS)*"
                 )
 
-            total_freq_str = f"{total_freq:,}".replace(",", " ")
-            total_ots_str = f"{total_ots:,}".replace(",", " ")
             lines.append(
                 f"\n**Impact cumulé du mois de {period_human} :**\n"
                 f"• **{total_freq_str} véhicules / jour** en visibilité directe.\n"
@@ -407,37 +541,84 @@ Rédige maintenant ta réponse commerciale selon les règles strictes suivantes 
             lines.append("Souhaitez-vous que je bloque une option sur cette sélection ou que nous ajustions l'un des emplacements ?")
             return "\n".join(lines)
         elif is_dispo_query:
-            # Priorité aux correspondances directes sur la localité, puis tri par date chronologique (plus proche en premier)
-            has_direct = any(p.get("is_direct_match") for p in panels)
-            if has_direct:
-                panels_sorted = sorted(panels, key=lambda x: (not x.get("is_direct_match", False), x.get("prochaine_dispo") or "9999-99"))
-            else:
-                panels_sorted = sorted(panels, key=lambda x: x.get("prochaine_dispo") or "9999-99")
-            intro = f"Voici les disponibilités pour vos panneaux 8m²{loc_str} :\n"
+            # Séparation entre correspondances directes sur la commune demandée et périphérie
+            direct_panels = [p for p in panels if p.get("is_direct_match")]
+            other_panels = [p for p in panels if not p.get("is_direct_match")]
+
+            # Tri par distance croissante
+            direct_panels = sorted(direct_panels, key=lambda x: (x.get("distance_km") if x.get("distance_km") is not None else 9999.0, -(x.get("frequentation_jour") or 0)))
+            other_panels = sorted(other_panels, key=lambda x: (x.get("distance_km") if x.get("distance_km") is not None else 9999.0, -(x.get("frequentation_jour") or 0)))
+
+            target_periods = extracted.get("target_periods", [])
+            has_precise_period = bool(target_periods)
+            period_str = ""
+            if target_periods:
+                period_str = " en " + " & ".join([format_period_human(tp) for tp in target_periods])
+
+            intro = f"Voici **toutes les disponibilités** 8m²{loc_str}{period_str} ({len(panels)} remorques au total) :\n"
             lines = [intro]
 
-            current_period = None
-            for p in panels_sorted:
-                p_period = p.get("prochaine_dispo_human") or format_period_human(p.get("prochaine_dispo")) or "Sur demande"
-                if not user_mentions_face:
-                    p_period = re.sub(r"\s*\(Face[^\)]*\)", "", str(p_period), flags=re.IGNORECASE).strip()
+            if direct_panels:
+                direct_city = direct_panels[0].get("ville", "la commune")
+                lines.append(f"**Emplacements à {direct_city} même ({len(direct_panels)} disponibles) :**")
+                for p in direct_panels:
+                    dist_str = f" ({p['distance_km']} km)" if p.get("distance_km") and p.get("distance_km") > 0 else ""
+                    freq_val = p.get('frequentation_jour') or p.get('frequentation') or 0
+                    ots_val = p.get('ots_mensuel') or p.get('ots') or 0
+                    freq_str = f" · **{freq_val:,} v/j**".replace(",", " ") if freq_val > 0 else ""
+                    ots_str = f" *(~{ots_val:,} OTS)*".replace(",", " ") if ots_val > 0 else ""
+                    direction = p.get("direction_in") or p.get("direction_out") or "Double sens"
+                    axe_code = p.get("code_route") or p.get("axe_routier") or ""
+                    axe_display = f"{axe_code} " if axe_code else ""
+                    
+                    if has_precise_period:
+                        dispo_str = ""
+                    else:
+                        dispo_txt = p.get("prochaine_dispo_human") or p.get("prochaine_dispo") or "Disponible"
+                        dispo_str = f" · *{dispo_txt}*"
 
-                if p_period != current_period:
-                    current_period = p_period
-                    lines.append(f"\n{current_period} :")
+                    lines.append(
+                        f"• [#{p['id']} {p['ville']} ({p['localisation']}) ↗️]({p['lien']}) — {axe_display}dir. {direction}{dist_str}{dispo_str}{freq_str}{ots_str}"
+                    )
 
-                dist_str = f" (à {p['distance_km']} km)" if p.get("distance_km") and p.get("distance_km") > 0 else ""
-                freq_str = f"{p.get('frequentation_jour', 0):,}".replace(",", " ")
-                ots_str = f"{p.get('ots_mensuel', 0):,}".replace(",", " ")
-                direction = p.get("direction_in") or p.get("direction_out") or "Double sens"
+            if other_panels:
+                lines.append(f"\n**En périphérie immédiate :**")
+                display_others = other_panels[:7]
+                for p in display_others:
+                    dist_str = f" ({p['distance_km']} km)" if p.get("distance_km") and p.get("distance_km") > 0 else ""
+                    freq_val = p.get('frequentation_jour') or p.get('frequentation') or 0
+                    freq_str = f" · **{freq_val:,} v/j**".replace(",", " ") if freq_val > 0 else ""
+                    direction = p.get("direction_in") or p.get("direction_out") or "Double sens"
+                    axe_code = p.get("code_route") or p.get("axe_routier") or ""
+                    axe_display = f"{axe_code} " if axe_code else ""
+                    
+                    if has_precise_period:
+                        dispo_str = ""
+                    else:
+                        dispo_txt = p.get("prochaine_dispo_human") or p.get("prochaine_dispo") or "Disponible"
+                        dispo_str = f" · *{dispo_txt}*"
 
-                contexte = p.get('contexte_visibilite') or ''
-                axe_code = p.get("code_route") or p.get("axe_routier") or ""
-                axe_display = f"{axe_code} " if axe_code else ""
+                    lines.append(
+                        f"• [#{p['id']} {p['ville']} ({p['localisation']}) ↗️]({p['lien']}) — {axe_display}dir. {direction}{dist_str}{dispo_str}{freq_str}"
+                    )
+                if len(other_panels) > len(display_others):
+                    remaining = len(other_panels) - len(display_others)
+                    lines.append(f"\n👉 *+ {remaining} autres remorques disponibles dans la zone — retrouvez l'intégralité des {len(panels)} emplacements dans le listing et sur la carte ci-contre.*")
+            elif direct_panels:
+                lines.append(f"\n👉 *Retrouvez le détail complet de vos {len(panels)} emplacements dans le listing et sur la carte ci-contre.*")
 
-                lines.append(
-                    f"• [#{p['id']} {p['ville']} ({p['localisation']}) ↗️]({p['lien']}) — {axe_display}dir. {direction}{dist_str} · **{freq_str} v/j** *(~{ots_str} OTS)*"
-                )
+            if can_expand_zone and peripheral_count > 0:
+                c_str = ", ".join(peripheral_cities[:4]) if peripheral_cities else "communes voisines"
+                lines.append(f"\n💡 **Élargissement possible :**")
+                lines.append(f"+{peripheral_count} autres remorques sont disponibles dans les communes voisines ({c_str}). Dites simplement **« élargis la zone »** si vous souhaitez les afficher et les inclure au choix de votre client.")
+
+            if availability_pdf_url:
+                lines.append(f"\n📄 **Catalogue PDF des disponibilités :**")
+                lines.append(f"Téléchargez la synthèse complète des {len(panels)} emplacements pour votre client :")
+                lines.append(f"👉 [**Télécharger le catalogue des disponibilités (PDF)**]({availability_pdf_url})")
+
+            lines.append(f"\n💡 **Sélection de votre client :**")
+            lines.append(f"Présentez cette sélection à votre client pour arrêter son choix. Dès qu'il retient ses faces (ex: *« On retient la 309 et la 310 »* ou via le bouton « Retenir » sur les fiches), le Plan Média officiel multi-mois et le chiffrage seront immédiatement générés.")
         else:
             loc_list = extracted.get("locations", [])
             if loc_list:

@@ -190,11 +190,41 @@ class DossierService:
         dossiers.sort(key=lambda x: x.get("timestamp", 0), reverse=True)
         return dossiers
 
+    def get_dossier_by_pdf(self, pdf_filename: str) -> Optional[Dict[str, Any]]:
+        """Recherche si un dossier enregistré correspond déjà à ce fichier PDF."""
+        if not pdf_filename or not os.path.exists(self.dossiers_dir):
+            return None
+        clean_name = os.path.basename(pdf_filename)
+        for fname in os.listdir(self.dossiers_dir):
+            if fname.endswith(".json"):
+                fpath = os.path.join(self.dossiers_dir, fname)
+                try:
+                    with open(fpath, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    pdf_url = data.get("pdf_url", "")
+                    if clean_name in pdf_url:
+                        return data
+                except Exception:
+                    continue
+        return None
+
     def delete_dossier(self, dossier_id: str, requesting_user_id: Optional[str] = None) -> bool:
         """Supprime un dossier si l'utilisateur est le propriétaire ou admin."""
         d = self.get_dossier(dossier_id, requesting_user_id=requesting_user_id)
         if not d:
             return False
+
+        # Supprimer le PDF associé s'il se trouve dans data/pdf/
+        pdf_url = d.get("pdf_url", "")
+        if pdf_url:
+            pdf_fname = os.path.basename(pdf_url.split("file=")[-1] if "file=" in pdf_url else pdf_url)
+            pdf_path = os.path.join(BASE_DIR, "data", "pdf", pdf_fname)
+            if os.path.exists(pdf_path):
+                try:
+                    os.remove(pdf_path)
+                    logger.info("PDF associé supprimé : %s", pdf_path)
+                except Exception as e:
+                    logger.warning("Erreur suppression PDF associé %s : %s", pdf_path, e)
 
         file_path = os.path.join(self.dossiers_dir, f"{dossier_id}.json")
         try:
@@ -205,3 +235,4 @@ class DossierService:
         except Exception as e:
             logger.error("Erreur suppression dossier %s : %s", dossier_id, e)
         return False
+

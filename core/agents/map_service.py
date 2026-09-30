@@ -88,9 +88,9 @@ class MapGeneratorService:
             blank.save(fallback_path)
             return fallback_path
 
-        # Clé de cache déterministe (préfixe v3hd pour forcer la mise à jour haute résolution)
+        # Clé de cache déterministe (v4hd pour forcer le recalcul avec marge de sécurité des pastilles)
         ids_key = "_".join(f"{p['id']}_{p['lat']:.4f}_{p['lng']:.4f}" for p in valid_points)
-        h = hashlib.md5(f"v3hd_{period_str}_{width}_{height}_{ids_key}".encode("utf-8")).hexdigest()[:12]
+        h = hashlib.md5(f"v4hd_{period_str}_{width}_{height}_{ids_key}".encode("utf-8")).hexdigest()[:12]
         file_path = os.path.join(self.cache_dir, f"map_{period_str}_{h}.png")
 
         if os.path.exists(file_path) and os.path.getsize(file_path) > 15000:
@@ -103,24 +103,33 @@ class MapGeneratorService:
         center_lat = (min_lat + max_lat) / 2.0
         center_lng = (min_lng + max_lng) / 2.0
 
-        span_lat = max(0.015, max_lat - min_lat)
-        span_lng = max(0.015, max_lng - min_lng)
+        # Calcul automatique du zoom adapté garantissant que TOUTES les épingles et leurs badges ont au moins 65px de marge
+        # Le marqueur a un rayon r=24 et son badge descend jusqu'à y + r + 30
+        pad_x = 70
+        pad_top = 50
+        pad_bot = 70
 
-        # Calcul automatique du zoom adapté
-        if span_lat < 0.05 and span_lng < 0.05:
-            base_zoom = 13
-        elif span_lat < 0.12 and span_lng < 0.12:
-            base_zoom = 12
-        elif span_lat < 0.28 and span_lng < 0.28:
-            base_zoom = 11
-        elif span_lat < 0.6 and span_lng < 0.6:
-            base_zoom = 10
-        else:
-            base_zoom = 9
+        best_zoom = 9
+        for candidate_zoom in range(15, 7, -1):
+            c_x, c_y = deg2num(center_lat, center_lng, candidate_zoom)
+            c_px_x = c_x * 256
+            c_px_y = c_y * 256
+            l_px = c_px_x - width / 2
+            t_px = c_px_y - height / 2
 
-        # En résolution Retina 2x (1300x880), on prend le niveau de tuiles zoom supérieur (base_zoom + 1)
-        # pour conserver exactement la même emprise géographique tout en doublant la netteté des détails
-        zoom = base_zoom + 1
+            all_fit = True
+            for p in valid_points:
+                px, py = deg2num(p["lat"], p["lng"], candidate_zoom)
+                pt_x = px * 256 - l_px
+                pt_y = py * 256 - t_px
+                if not (pad_x <= pt_x <= width - pad_x and pad_top <= pt_y <= height - pad_bot):
+                    all_fit = False
+                    break
+            if all_fit:
+                best_zoom = candidate_zoom
+                break
+
+        zoom = best_zoom
 
         center_x, center_y = deg2num(center_lat, center_lng, zoom)
         center_px_x = center_x * 256

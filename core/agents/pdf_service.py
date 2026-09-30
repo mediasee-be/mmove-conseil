@@ -7,7 +7,7 @@ from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, PageBreak, KeepTogether, HRFlowable
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, PageBreak, KeepTogether, HRFlowable, Flowable
 )
 
 from core.agents.map_service import MapGeneratorService
@@ -15,6 +15,48 @@ from core.agents.map_service import MapGeneratorService
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 PDF_DIR = os.path.join(BASE_DIR, "data", "pdf")
 os.makedirs(PDF_DIR, exist_ok=True)
+
+
+class InteractiveCheckbox(Flowable):
+    """Case à cocher interactive pour formulaire PDF (AcroForm) avec affichage/impression soigné."""
+    def __init__(self, name: str, size: int = 10, tooltip: str = "Sélectionner cette face"):
+        super().__init__()
+        self.name = name
+        self.size = size
+        self.tooltip = tooltip
+        self.width = size + 2
+        self.height = size + 2
+
+    def draw(self):
+        canv = self.canv
+        canv.saveState()
+        # Carré blanc à bordure orange M Move
+        canv.setStrokeColor(colors.HexColor("#F4920D"))
+        canv.setFillColor(colors.HexColor("#FFFFFF"))
+        canv.setLineWidth(1.1)
+        canv.roundRect(1, 1, self.size, self.size, 1.8, fill=1, stroke=1)
+
+        # Widget AcroForm cliquable pour formulaire interactif PDF
+        if hasattr(canv, "acroForm") and canv.acroForm:
+            try:
+                canv.acroForm.checkbox(
+                    name=self.name,
+                    tooltip=self.tooltip,
+                    checked=False,
+                    buttonStyle='check',
+                    shape='square',
+                    size=self.size,
+                    x=1,
+                    y=1,
+                    borderColor=colors.HexColor("#F4920D"),
+                    fillColor=colors.HexColor("#FFFFFF"),
+                    textColor=colors.HexColor("#F4920D"),
+                    borderWidth=1.1,
+                    relative=True
+                )
+            except Exception:
+                pass
+        canv.restoreState()
 
 class CampaignPdfService:
     """Service de génération de Plan Média au format PDF A4 Paysage."""
@@ -389,6 +431,508 @@ class CampaignPdfService:
             # Saut de page entre chaque mois (sauf après le dernier mois)
             if page_idx < total_pages:
                 story.append(PageBreak())
+
+        doc.build(story)
+        return pdf_path
+
+    def generate_availability_pdf(
+        self,
+        panels: List[Dict[str, Any]],
+        location_name: str = "Wallonie",
+        periods: Optional[List[str]] = None,
+        client_name: str = "Partenaire",
+        salesperson: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Construit un catalogue des disponibilités 8m² au format PDF A4 Paysage :
+        - En-tête personnalisé au nom du client et de la zone
+        - Cartographie d'ensemble des emplacements disponibles
+        - Tableau détaillé des remorques pour sélection client (adresses, flux, directions)
+        - Coordonnées directes du commercial
+        """
+        sp_initials = (salesperson.get("initials") if salesperson else "DR") or "DR"
+        sp_name = (salesperson.get("name") if salesperson else "David Rossomme") or "David Rossomme"
+        sp_phone = (salesperson.get("phone") if salesperson else "+32 477 38 40 20") or ""
+        sp_email = (salesperson.get("email") if salesperson else "david@mediasee.be") or ""
+
+        periods = periods or []
+        periods_human = []
+        month_names = ["", "janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"]
+        for p in periods:
+            parts = p.split("-")
+            if len(parts) == 2:
+                try:
+                    m_int = int(parts[1])
+                    periods_human.append(f"{month_names[m_int].capitalize()} {parts[0]}")
+                except Exception:
+                    periods_human.append(p)
+            else:
+                periods_human.append(p)
+        periods_str = " & ".join(periods_human) if periods_human else "Prochainement"
+
+        loc_slug = "".join(c if c.isalnum() else "_" for c in location_name.lower())[:15]
+        client_slug = "".join(c if c.isalnum() else "_" for c in client_name.lower())[:15]
+        h_str = f"dispo_v6_{client_name}_{sp_initials}_{location_name}_{periods_str}_{len(panels)}"
+        dispo_hash = hashlib.md5(h_str.encode("utf-8")).hexdigest()[:10]
+        pdf_filename = f"catalogue_dispos_mmove_{client_slug}_{loc_slug}_{sp_initials.lower()}_{dispo_hash}.pdf"
+        pdf_path = os.path.join(self.pdf_dir, pdf_filename)
+
+        doc = SimpleDocTemplate(
+            pdf_path,
+            pagesize=landscape(A4),
+            leftMargin=25,
+            rightMargin=25,
+            topMargin=20,
+            bottomMargin=20
+        )
+
+        styles = getSampleStyleSheet()
+        c_orange = colors.HexColor("#F4920D")
+        c_navy = colors.HexColor("#0F172A")
+        c_slate = colors.HexColor("#334155")
+        c_light = colors.HexColor("#F8FAFC")
+        c_border = colors.HexColor("#CBD5E1")
+
+        style_title = ParagraphStyle(
+            "DispoTitle",
+            parent=styles["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=14,
+            leading=16,
+            textColor=c_navy
+        )
+        style_sub = ParagraphStyle(
+            "DispoSub",
+            parent=styles["Normal"],
+            fontName="Helvetica",
+            fontSize=8.5,
+            leading=11,
+            textColor=c_slate
+        )
+        style_right = ParagraphStyle(
+            "DispoRight",
+            parent=styles["Normal"],
+            fontName="Helvetica",
+            fontSize=8.5,
+            leading=11,
+            alignment=2,
+            textColor=c_navy
+        )
+        style_th = ParagraphStyle(
+            "DispoTH",
+            parent=styles["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=7.2,
+            leading=8.5,
+            textColor=colors.white
+        )
+        style_td = ParagraphStyle(
+            "DispoTD",
+            parent=styles["Normal"],
+            fontName="Helvetica",
+            fontSize=7.2,
+            leading=9,
+            textColor=c_navy
+        )
+        style_td_bold = ParagraphStyle(
+            "DispoTDBold",
+            parent=styles["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=7.2,
+            leading=9,
+            textColor=c_navy
+        )
+        style_td_orange = ParagraphStyle(
+            "DispoTDOrange",
+            parent=styles["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=7.2,
+            leading=9,
+            textColor=c_orange
+        )
+        style_notice = ParagraphStyle(
+            "DispoNotice",
+            parent=styles["Normal"],
+            fontName="Helvetica",
+            fontSize=7.5,
+            leading=9.5,
+            textColor=c_slate
+        )
+        style_comm_notice = ParagraphStyle(
+            "DispoCommNotice",
+            parent=styles["Normal"],
+            fontName="Helvetica",
+            fontSize=6.8,
+            leading=8.8,
+            textColor=c_slate
+        )
+
+        style_th_center = ParagraphStyle(
+            "DispoTHCenter",
+            parent=styles["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=7,
+            leading=8.5,
+            alignment=1,
+            textColor=colors.white
+        )
+        style_td_center_bold = ParagraphStyle(
+            "DispoTDCenterBold",
+            parent=styles["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=7.2,
+            leading=9,
+            alignment=1,
+            textColor=c_orange
+        )
+
+        # Construction de la liste des faces disponibles (dédoublement si IN et OUT sont libres)
+        available_faces = []
+        for p_idx, p in enumerate(panels, 1):
+            pid = str(p.get("id"))
+            dispos = p.get("disponibilites", {})
+
+            in_free = True
+            out_free = True
+            if periods:
+                for prd in periods:
+                    m_disp = dispos.get(prd, {})
+                    if m_disp:
+                        if m_disp.get("IN") == "LOUÉ":
+                            in_free = False
+                        if m_disp.get("OUT") == "LOUÉ":
+                            out_free = False
+
+            dir_in = p.get("direction_in") or "Sens entrant"
+            dir_out = p.get("direction_out") or "Sens sortant"
+
+            if in_free and out_free:
+                available_faces.append({
+                    **p,
+                    "pin_num": p_idx,
+                    "face": "IN",
+                    "face_tag": "IN",
+                    "direction": dir_in,
+                    "display_code": f"#{pid} IN",
+                    "chk_name": f"chk_{pid}_in"
+                })
+                available_faces.append({
+                    **p,
+                    "pin_num": p_idx,
+                    "face": "OUT",
+                    "face_tag": "OUT",
+                    "direction": dir_out,
+                    "display_code": f"#{pid} OUT",
+                    "chk_name": f"chk_{pid}_out"
+                })
+            elif in_free:
+                available_faces.append({
+                    **p,
+                    "pin_num": p_idx,
+                    "face": "IN",
+                    "face_tag": "IN",
+                    "direction": dir_in,
+                    "display_code": f"#{pid} IN",
+                    "chk_name": f"chk_{pid}_in"
+                })
+            elif out_free:
+                available_faces.append({
+                    **p,
+                    "pin_num": p_idx,
+                    "face": "OUT",
+                    "face_tag": "OUT",
+                    "direction": dir_out,
+                    "display_code": f"#{pid} OUT",
+                    "chk_name": f"chk_{pid}_out"
+                })
+            else:
+                dir_gen = p.get("direction") or dir_out or dir_in or "Double sens"
+                available_faces.append({
+                    **p,
+                    "pin_num": p_idx,
+                    "face": "A",
+                    "face_tag": "A",
+                    "direction": dir_gen,
+                    "display_code": f"#{pid}",
+                    "chk_name": f"chk_{pid}"
+                })
+
+        total_faces = len(available_faces)
+        total_panels = len(panels)
+        total_veh = sum(p.get("frequentation_jour") or p.get("frequentation") or 0 for p in panels)
+        total_ots = sum(p.get("ots_mensuel") or p.get("ots") or 0 for p in panels)
+        today_str = datetime.now().strftime("%d/%m/%Y")
+
+        def make_header():
+            hdr_cells = []
+            if os.path.exists(self.logo_path):
+                # Respect strict du ratio 2.6:1 du logo M Move sans déformation
+                hdr_cells.append(Image(self.logo_path, width=86, height=33))
+            else:
+                hdr_cells.append(Paragraph("<b>M MOVE</b>", style_title))
+
+            hdr_cells.append([
+                Paragraph(f"<b>CATALOGUE DES DISPONIBILITÉS 8M² — SÉLECTION CLIENT</b>", style_title),
+                Spacer(1, 2),
+                Paragraph(f"Bassin cible : <b>{location_name}</b> · Période : <b>{periods_str}</b> · <b>{total_faces} faces disponibles ({total_panels} panneaux qualifiés)</b>", style_sub)
+            ])
+
+            hdr_cells.append([
+                Paragraph(f"<b>Client :</b> <font color='#F4920D'>{client_name}</font>", style_right),
+                Paragraph(f"Document d'aide au choix · Édité le {today_str}", style_right),
+                Paragraph(f"<b>Contact :</b> {sp_name}", style_right)
+            ])
+            t = Table([hdr_cells], colWidths=[96, 470, 225])
+            t.setStyle(TableStyle([
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                ("TOPPADDING", (0, 0), (-1, -1), 0),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ]))
+            return t
+
+        def make_footer():
+            sp_contact_parts = []
+            if sp_phone:
+                sp_contact_parts.append(f"Tél : {sp_phone}")
+            if sp_email:
+                sp_contact_parts.append(sp_email)
+            sp_contact_str = " · ".join(sp_contact_parts) if sp_contact_parts else "info@mediasee.be"
+            f_table = Table([[
+                Paragraph("<b>M MOVE CONSEIL</b> · Réseau d'Affichage Mobile 8m² en Wallonie", style_sub),
+                Paragraph("<i>Cochez vos faces favorites ou transmettez leurs numéros à votre conseiller pour monter le Plan Média certifié.</i>", style_sub),
+                Paragraph(f"<b>{sp_name}</b> · {sp_contact_str}", style_right)
+            ]], colWidths=[240, 310, 240])
+            f_table.setStyle(TableStyle([
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("TOPPADDING", (0, 0), (-1, -1), 2),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                ("LINEABOVE", (0, 0), (-1, -1), 0.5, c_border),
+            ]))
+            return f_table
+
+        story = []
+
+        # PAGE 1 : Synthèse + Carte HD + Premiers emplacements
+        story.append(make_header())
+        story.append(Spacer(1, 4))
+        story.append(HRFlowable(width="100%", thickness=1, color=c_orange, spaceBefore=0, spaceAfter=5))
+
+        # KPI Bar (Terminologie : Faces et Panneaux)
+        kpi_cells = [
+            [
+                Paragraph("<b>FACES DISPONIBLES</b>", style_th),
+                Paragraph("<b>FLUX TRAFIC DIRECT CUMULÉ</b>", style_th),
+                Paragraph("<b>AUDIENCE MENSUELLE TOTALE</b>", style_th),
+                Paragraph("<b>ZONE COUVERTE</b>", style_th)
+            ],
+            [
+                Paragraph(f"<font size=11 color='#F4920D'><b>{total_faces} faces</b></font> ({total_panels} panneaux)", style_td_bold),
+                Paragraph(f"<font size=11 color='#0F172A'><b>{total_veh:,}</b></font> véh./jour".replace(",", " "), style_td_bold),
+                Paragraph(f"<font size=11 color='#0F172A'><b>~{total_ots:,}</b></font> OTS / mois".replace(",", " "), style_td_bold),
+                Paragraph(f"<font size=11 color='#0F172A'><b>{location_name}</b></font> & périphérie", style_td_bold)
+            ]
+        ]
+        kpi_table = Table(kpi_cells, colWidths=[185, 205, 205, 195])
+        kpi_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), c_navy),
+            ("BACKGROUND", (0, 1), (-1, 1), colors.HexColor("#F1F5F9")),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ("GRID", (0, 0), (-1, -1), 0.5, c_border),
+        ]))
+        story.append(kpi_table)
+        story.append(Spacer(1, 6))
+
+        # Répartition page 1 vs page 2 : Jusqu'à 9 faces en Page 1, le reste en Page 2
+        if total_faces <= 9:
+            page1_faces = available_faces
+            remaining_faces = []
+        else:
+            page1_faces = available_faces[:8]
+            remaining_faces = available_faces[8:]
+
+        # Colonne de gauche Page 1 : Tableau des faces avec case à cocher interactive et colonne Direction dédiée
+        left_rows = [
+            [
+                Paragraph("<b>Choix</b>", style_th_center),
+                Paragraph("<b>N°</b>", style_th_center),
+                Paragraph("<b>Face</b>", style_th),
+                Paragraph("<b>Commune & Emplacement</b>", style_th),
+                Paragraph("<b>Axe</b>", style_th),
+                Paragraph("<b>Direction</b>", style_th),
+                Paragraph("<b>Trafic</b>", style_th),
+                Paragraph("<b>OTS</b>", style_th),
+            ]
+        ]
+        for f in page1_faces:
+            pid = str(f.get("id"))
+            pin_n = str(f.get("pin_num", 1))
+            face_tag = f.get("face_tag", "A")
+            v = f.get("ville", "")
+            loc = f.get("localisation", "")
+            axe = f.get("code_route") or f.get("axe_routier") or ""
+            d = f.get("direction", "Double sens")
+            if len(d) > 17:
+                d = d[:15] + ".."
+            freq = f"{f.get('frequentation_jour', 0):,}".replace(",", " ")
+            ots = f"{f.get('ots_mensuel', 0):,}".replace(",", " ")
+            dist = f" ({f.get('distance_km')} km)" if f.get("distance_km") else ""
+
+            chk = InteractiveCheckbox(f["chk_name"], size=10, tooltip=f"Sélectionner {f['display_code']}")
+
+            left_rows.append([
+                chk,
+                Paragraph(f"<b>● {pin_n}</b>", style_td_center_bold),
+                Paragraph(f"<b>#{pid}</b> <font size=6.5 color='#F4920D'><b>{face_tag}</b></font>", style_td),
+                Paragraph(f"<b>{v}</b> - {loc}{dist}", style_td),
+                Paragraph(f"{axe}", style_td),
+                Paragraph(f"{d}", style_td),
+                Paragraph(f"<b>{freq}</b>", style_td),
+                Paragraph(f"{ots}", style_td),
+            ])
+
+        # Largeur totale = 442 pt : colonnes harmonisées
+        left_tbl = Table(left_rows, colWidths=[26, 24, 52, 118, 44, 86, 46, 46])
+        left_tbl.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), c_navy),
+            ("ALIGN", (0, 0), (0, -1), "CENTER"),
+            ("ALIGN", (1, 0), (1, -1), "CENTER"),
+            ("ALIGN", (2, 0), (-1, -1), "LEFT"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("LEFTPADDING", (0, 0), (1, -1), 1),
+            ("RIGHTPADDING", (0, 0), (1, -1), 1),
+            ("TOPPADDING", (0, 0), (-1, -1), 2.2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2.2),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, c_light]),
+            ("GRID", (0, 0), (-1, -1), 0.5, c_border),
+        ]))
+
+        # Encadré commercial valorisant les disponibilités et incitant à l'option
+        notice_box = Table([[
+            Paragraph(
+                f"<b>* Disponibilités constatées en temps réel au {today_str} :</b> compte tenu de la forte rotation de notre réseau et de la demande soutenue sur le bassin de <b>{location_name}</b>, ces faces sont proposées sous réserve de confirmation au moment de la réservation ferme.<br/>"
+                f"<b>Recommandation :</b> <i>posez une option prioritaire (sans engagement) auprès de votre conseiller afin de sécuriser immédiatement vos faces favorites.</i>",
+                style_comm_notice
+            )
+        ]], colWidths=[442])
+        notice_box.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F8FAFC")),
+            ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
+            ("LINELEFT", (0, 0), (0, -1), 2.5, c_orange),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ]))
+
+        left_flowables = [
+            Paragraph("<b>Sélection des faces prioritaires (cliquez pour cocher) :</b>", style_td_bold),
+            Spacer(1, 3),
+            left_tbl,
+            Spacer(1, 4),
+            Paragraph(
+                "<b>Conseil :</b> <i>cochez 2 à 5 faces complémentaires pour couvrir l'ensemble des axes d'accès majeurs sans doublon de visibilité.</i>",
+                style_notice
+            ),
+            Spacer(1, 4),
+            notice_box
+        ]
+
+        # Colonne de droite Page 1 : Carte HD des disponibilités (avec cadrage et marges sécurisées)
+        right_flowables = []
+        map_img_path = self.map_service.generate_campaign_map(panels[:20], period_str=f"dispo_{dispo_hash}", width=1100, height=750)
+        if os.path.exists(map_img_path):
+            right_flowables.append(Image(map_img_path, width=340, height=230))
+        right_flowables.append(Spacer(1, 3))
+        right_flowables.append(Paragraph(
+            f"<b>Carte du bassin {location_name}</b> : Pastilles oranges numérotées correspondant aux emplacements libres du tableau. Couverture équilibrée des axes structurants.",
+            style_notice
+        ))
+
+        p1_two_cols = Table([[left_flowables, right_flowables]], colWidths=[442, 348])
+        p1_two_cols.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+            ("TOPPADDING", (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ]))
+        story.append(p1_two_cols)
+        story.append(Spacer(1, 6))
+        story.append(make_footer())
+
+        # Si plus de faces que l'espace disponible en Page 1, ajouter les pages suivantes
+        if remaining_faces:
+            story.append(PageBreak())
+            story.append(make_header())
+            story.append(Spacer(1, 4))
+            story.append(HRFlowable(width="100%", thickness=1, color=c_orange, spaceBefore=0, spaceAfter=6))
+            story.append(Paragraph(f"<b>Suite des disponibilités pour sélection ({len(remaining_faces)} faces complémentaires) :</b>", style_td_bold))
+            story.append(Spacer(1, 4))
+
+            # Table complète en pleine largeur (790 pt)
+            full_rows = [
+                [
+                    Paragraph("<b>Choix</b>", style_th_center),
+                    Paragraph("<b>N°</b>", style_th_center),
+                    Paragraph("<b>Face</b>", style_th),
+                    Paragraph("<b>Commune</b>", style_th),
+                    Paragraph("<b>Emplacement précis</b>", style_th),
+                    Paragraph("<b>Axe Routier</b>", style_th),
+                    Paragraph("<b>Direction du flux</b>", style_th),
+                    Paragraph("<b>Distance</b>", style_th),
+                    Paragraph("<b>Trafic direct</b>", style_th),
+                    Paragraph("<b>OTS mensuels</b>", style_th),
+                ]
+            ]
+            for f in remaining_faces:
+                pid = str(f.get("id"))
+                pin_n = str(f.get("pin_num", 1))
+                face_tag = f.get("face_tag", "A")
+                v = f.get("ville", "")
+                loc = f.get("localisation", "")
+                axe = f.get("code_route") or f.get("axe_routier") or ""
+                d = f.get("direction", "Double sens")
+                freq = f"{f.get('frequentation_jour', 0):,}".replace(",", " ")
+                ots = f"{f.get('ots_mensuel', 0):,}".replace(",", " ")
+                dist = f"{f.get('distance_km')} km" if f.get("distance_km") else "-"
+
+                chk = InteractiveCheckbox(f["chk_name"], size=10, tooltip=f"Sélectionner {f['display_code']}")
+
+                full_rows.append([
+                    chk,
+                    Paragraph(f"<b>● {pin_n}</b>", style_td_center_bold),
+                    Paragraph(f"<b>#{pid}</b> <font size=6.5 color='#F4920D'><b>{face_tag}</b></font>", style_td),
+                    Paragraph(f"<b>{v}</b>", style_td),
+                    Paragraph(f"{loc}", style_td),
+                    Paragraph(f"{axe}", style_td),
+                    Paragraph(f"{d}", style_td),
+                    Paragraph(f"{dist}", style_td),
+                    Paragraph(f"<b>{freq} v/j</b>", style_td),
+                    Paragraph(f"~{ots}", style_td),
+                ])
+
+            full_tbl = Table(full_rows, colWidths=[26, 24, 52, 70, 180, 60, 130, 48, 80, 80])
+            full_tbl.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), c_navy),
+                ("ALIGN", (0, 0), (0, -1), "CENTER"),
+                ("ALIGN", (1, 0), (1, -1), "CENTER"),
+                ("ALIGN", (2, 0), (-1, -1), "LEFT"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("LEFTPADDING", (0, 0), (1, -1), 1),
+                ("RIGHTPADDING", (0, 0), (1, -1), 1),
+                ("TOPPADDING", (0, 0), (-1, -1), 2.5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, c_light]),
+                ("GRID", (0, 0), (-1, -1), 0.5, c_border),
+            ]))
+            story.append(full_tbl)
+            story.append(Spacer(1, 10))
+            story.append(make_footer())
 
         doc.build(story)
         return pdf_path

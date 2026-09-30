@@ -50,7 +50,7 @@ Tu es l'**Agent Commercial Expert** de la société **M Move** (remorquepublicit
       * [Total véh/j] véhicules / jour en visibilité directe.
       * ~[Total OTS] occasions d'être vu (OTS) sur le mois de [Période].
     - Rétroplanning bâche (OBLIGATOIRE) :
-      🗓️ Rétroplanning : Pour un démarrage le 1er [Mois], la remise des fichiers d'impression (format 390x200 cm) est fixée au 15 [Mois précédent].
+      🗓️ Rétroplanning : Pour un démarrage le 1er [Mois], la remise des fichiers d'impression (format 390x200 cm) est fixée au 15 [Mois précédent]. Tournée de placement effectuée sur 3 jours ouvrables pour l'ensemble des placements.
   - **Si campagne sur plusieurs mois (multi-mois avec rotation) :**
     - Titre : **Plan de campagne multi-mois : [N] faces autour de [Ville] — [Période début] à [Période fin]**
     - Présentation mois par mois avec rotation dynamique :
@@ -62,7 +62,7 @@ Tu es l'**Agent Commercial Expert** de la société **M Move** (remorquepublicit
       * [Total faces] faces mobilisées sur la durée.
       * ~[Moyenne véh/j] véhicules / jour en visibilité directe.
       * ~[Total OTS cumulé] occasions d'être vu (OTS) sur l'ensemble de la campagne.
-    - Rétroplanning bâche : Remise des fichiers (390x200 cm) au plus tard le 15 du mois précédent pour chaque mois.
+    - Rétroplanning bâche : Remise des fichiers (390x200 cm) au plus tard le 15 du mois précédent pour chaque mois. Tournée de placement effectuée sur 3 jours ouvrables pour l'ensemble des placements.
     - Mentionner que le Plan Média complet (PDF A4 Paysage) avec les cartes d'implantation de chaque mois est disponible au téléchargement.
 
 * **DEMANDE DE LOCALISATION ("remorques à...", "panneaux à...", recherche par ville) :**
@@ -217,7 +217,7 @@ Rédige maintenant ta réponse commerciale selon les règles strictes suivantes 
        - Trafic : [frequentation] véh./jour (~[ots] OTS/mois)
        - Rôle : [Axe et couverture du flux]
    - Bloc d'impact cumulé chiffré (total véhicules/jour et total OTS mensuels).
-   - Rétroplanning bâche (remise des fichiers format 390x200 cm avant le 15 du mois précédent).
+   - Rétroplanning bâche (remise des fichiers format 390x200 cm avant le 15 du mois précédent, tournée de placement sur 3 jours ouvrables pour l'ensemble des placements).
 """
 
         # Construction de l'historique de conversation
@@ -339,7 +339,7 @@ Rédige maintenant ta réponse commerciale selon les règles strictes suivantes 
             first_deadline = months[0].get("deadline_full", "")
             if first_deadline:
                 lines.append(
-                    f"*🗓️ Visuels bâche (390×200 cm) à fournir avant le **{first_deadline}** (règle du 15 du mois précédent).*\n"
+                    f"*🗓️ Visuels bâche (390×200 cm) à fournir avant le **{first_deadline}** · Tournée de placement sur 3 jours ouvrables pour l'ensemble des placements.*\n"
                 )
 
             lines.append(
@@ -363,9 +363,9 @@ Rédige maintenant ta réponse commerciale selon les règles strictes suivantes 
                     month_names = ["", "janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"]
                     curr_month_name = month_names[month]
                     prev_month_name = month_names[prev_month]
-                    deadline_str = f"*🗓️ Visuels bâche (390×200 cm) à fournir avant le **15 {prev_month_name} {prev_year}**.*"
+                    deadline_str = f"*🗓️ Visuels bâche (390×200 cm) à fournir avant le **15 {prev_month_name} {prev_year}** · Tournée de placement sur 3 jours ouvrables pour l'ensemble des placements.*"
                 except Exception:
-                    deadline_str = "*🗓️ Visuels bâche (390×200 cm) à fournir avant le 15 du mois précédent.*"
+                    deadline_str = "*🗓️ Visuels bâche (390×200 cm) à fournir avant le 15 du mois précédent · Tournée de placement sur 3 jours ouvrables pour l'ensemble des placements.*"
 
             n_faces = len(panels)
             title = f"Plan de campagne 8m² : {n_faces} faces{loc_str} — {period_human}"

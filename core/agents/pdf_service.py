@@ -42,7 +42,7 @@ class CampaignPdfService:
 
         # Hash pour mise en cache (dépend du client pour régénération immédiate)
         client_slug = "".join(c if c.isalnum() else "_" for c in client_name.lower())[:15]
-        plan_hash = hashlib.md5(f"v3_{client_name}_{str(campaign_plan.get('periods', []))}".encode("utf-8")).hexdigest()[:10]
+        plan_hash = hashlib.md5(f"v4_{client_name}_{str(campaign_plan.get('periods', []))}".encode("utf-8")).hexdigest()[:10]
         pdf_filename = f"plan_media_mmove_{client_slug}_{loc.lower()}_{plan_hash}.pdf"
         pdf_path = os.path.join(self.pdf_dir, pdf_filename)
 
@@ -302,7 +302,7 @@ class CampaignPdfService:
                         f"<b>RÉTROPLANNING BÂCHE :</b><br/>"
                         f"Livraison des visuels : <b>avant le {deadline_full}</b><br/>"
                         f"<font color='#64748B'>Format PDF vectoriel CMJN (65 dpi min)</font><br/>"
-                        f"Pose & calage assurés par nos équipes avant le 1er {period_human}.",
+                        f"Tournée de placement sur 3 jours ouvrables pour l'ensemble des placements.",
                         style_panel_item
                     )
                 ]
@@ -354,7 +354,7 @@ class CampaignPdfService:
             footer_data = [
                 [
                     Paragraph("<b>M MOVE CONSEIL</b> · Affichage Mobile & Remorques Publicitaires 8m² en Wallonie", style_tech),
-                    Paragraph("<b>Prestation Réseau :</b> Emplacements stratégiques 8m² · Pose & Dépose assurées · Assurance RC", style_tech),
+                    Paragraph("<b>Prestation Réseau :</b> Emplacements stratégiques 8m² · Tournée de placement & retrait · Assurance RC", style_tech),
                     Paragraph("<b>Contact :</b> mmove@mediasee.be · www.remorquepublicitaire.be", style_tech),
                 ]
             ]

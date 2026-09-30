@@ -10,7 +10,7 @@ import json
 import ssl
 import urllib.request
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 DEFAULT_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
@@ -22,7 +22,8 @@ Année de référence : 2026 (les dates sans année font référence à 2026, ou
 ### RÈGLES D'EXTRACTION :
 1. "intent" :
    - "set_client_name" : définition ou mise à jour du nom du client (ex: "le client est Greenrobot", "client : Brico", "au nom de Marjorie Thomas")
-   - "campaign_proposal" : proposition d'un plan de campagne publicitaire / multi-faces (ex: "propose-moi une campagne de 5 faces autour de Gembloux en janvier", "plan média", "sélection de campagne")
+   - "campaign_proposal" : proposition d'un plan de campagne publicitaire / multi-faces (ex: "propose-moi une campagne de 5 faces autour de Gembloux en janvier", "plan média", "sélection de campagne", "refais ma sélection")
+   - "refine_campaign" : affinement, élargissement ou modification d'une campagne / sélection en cours (ex: "élargis vers Wavre", "ok pour la 108", "garde la 108", "enlève le 323", "sans la 329", "passe à 4 faces")
    - "search_panels" : demande de remorques / recherche géographique simple
    - "check_availability" : question sur quand un panneau ou un lieu est libre (ex: "quand est libre le 114 ?")
    - "identify_panel" : identification (ex: "c'est quel panneau près de la clinique ?")
@@ -31,34 +32,47 @@ Année de référence : 2026 (les dates sans année font référence à 2026, ou
    - "admin_debug" : si l'utilisateur dit être "Corentin" ou demande le "mode debug"
    - "general_chat" : salutation ou question générale sans rapport avec une recherche
 
-2. "client_name" : Nom de l'entreprise, marque, commerce ou personne cliente pour qui la campagne / devis est préparé (ex: "client : Greenrobot" -> "Greenrobot", "pour Greenrobot" -> "Greenrobot", "campagne pour Brico" -> "Brico", "au nom de Immo Toma" -> "Immo Toma"). Si aucun nom de client n'est mentionné, laisser null.
+2. "refinement_action" (uniquement si intent == "refine_campaign") :
+   - "expand_zone" : élargissement de la zone de recherche (ex: "élargis vers Wavre", "ajoute Wavre", "regarde aussi à Wavre", "et à Wavre ?")
+   - "pin_panel" : validation ou ajout d'un panneau à la sélection (ex: "ok pour la 108", "garde la 108", "je prends la 108", "valide le 108")
+   - "exclude_panel" : rejet d'un panneau (ex: "pas la 323", "enlève le 323", "sans la 323")
+   - "change_count" : modification du nombre de faces (ex: "passe à 4 faces", "avec 6 faces")
+   - "change_period" : modification des mois de campagne
 
-3. "target_id" : ID numérique de remorque si mentionné (ex: "#114" -> "114", "panneau 102" -> "102")
+3. "is_regeneration" : true si l'utilisateur demande de régénérer, refaire ou mettre à jour la sélection avec les critères en cours (ex: "refais ma sélection", "mets à jour la sélection", "régénère le plan", "actualise la sélection")
 
-4. "locations" : Villes, communes, villages, zonings, adresses belges (ex: ["Wierde", "Naninne", "Sclayn", "Namur", "Wavre", "Gembloux", "Chaussée de Tirlemont"]). Ne pas mettre le nom du client ici si c'est déjà client_name.
+4. "pinned_panel_ids" : Liste d'identifiants de remorques validés par l'utilisateur (ex: ["108"])
 
-5. "axes" : Axes routiers mentionnés (ex: ["N4", "E411", "E42", "N25", "N29", "N89", "N90"])
+5. "excluded_panel_ids" : Liste d'identifiants de remorques rejetés par l'utilisateur (ex: ["323"])
 
-6. "target_periods" : Liste des mois au format "AAAA-MM".
+6. "client_name" : Nom de l'entreprise, marque, commerce ou personne cliente (ex: "client : Greenrobot" -> "Greenrobot"). Si aucun nom mentionné, laisser null.
+
+7. "target_id" : ID numérique de remorque si mentionné (ex: "#114" -> "114", "panneau 108" -> "108")
+
+8. "locations" : Villes, communes, villages, zonings, adresses belges (ex: ["Wierde", "Naninne", "Sclayn", "Namur", "Wavre", "Gembloux"]).
+
+9. "axes" : Axes routiers mentionnés (ex: ["N4", "E411", "E42", "N25", "N29", "N89", "N90"])
+
+10. "target_periods" : Liste des mois au format "AAAA-MM".
    - Nous sommes actuellement fin 2026.
    - Les mois futurs de début d'année (janvier à septembre) sont en 2027 : "janvier" -> ["2027-01"], "mars" -> ["2027-03"].
    - Les mois de fin d'année en cours : "octobre" -> ["2026-10"], "novembre" -> ["2026-11"], "décembre" -> ["2026-12"].
-   - Si plusieurs mois sont mentionnés (ex: "Mars, Avril, Mai", "de mars à mai", "sur 3 mois à partir de mars"), liste TOUS les mois ordonnés chronologiquement (ex: ["2027-03", "2027-04", "2027-05"]).
-   - Si aucune date n'est précisée, laisser [].
+   - Si plusieurs mois sont mentionnés (ex: "Mars, Avril, Mai"), liste TOUS les mois ordonnés chronologiquement (ex: ["2027-03", "2027-04", "2027-05"]).
+   - Si aucune date n'est précisée dans ce message précis, laisser [].
 
-7. "province" : Province wallonne ("Liège", "Namur", "Hainaut", "Luxembourg", "Brabant-Wallon") si mentionnée
-
-8. "sector" : Secteur d'activité du client (ex: "bricolage", "concessionnaire automobile", "immobilier", "restauration")
-
-9. "contexte_pref" : Contexte de visibilité recherché (ex: "zoning", "rond-point", "bouchons", "ralentissement", "centre commercial")
-
-10. "count_requested" : Nombre de faces ou panneaux souhaités (ex: "5 face" -> 5, "3 panneaux" -> 3, par défaut 3)
-
-11. "is_admin" : true si l'utilisateur mentionne "Corentin", "admin" ou "debug"
+11. "province" : Province wallonne si mentionnée
+12. "sector" : Secteur d'activité du client
+13. "contexte_pref" : Contexte de visibilité recherché (ex: "zoning", "rond-point")
+14. "count_requested" : Nombre de faces ou panneaux souhaités (par défaut 5 pour une campagne, 3 pour une recherche)
+15. "is_admin" : true si mention de "Corentin", "admin" ou "debug"
 
 ### FORMAT DE SORTIE JSON STRICT :
 {
   "intent": "search_panels",
+  "refinement_action": null,
+  "is_regeneration": false,
+  "pinned_panel_ids": [],
+  "excluded_panel_ids": [],
   "client_name": null,
   "target_id": null,
   "locations": [],
@@ -104,8 +118,13 @@ class ExtractorAgent:
         self.model = model
         self.ssl_ctx = ssl._create_unverified_context()
 
-    def extract(self, user_message: str) -> Dict[str, Any]:
-        """Extrait les entités et l'intention depuis le message utilisateur."""
+    def extract(
+        self,
+        user_message: str,
+        conversation_history: Optional[List[Dict[str, Any]]] = None,
+        active_context: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """Extrait les entités et l'intention depuis le message utilisateur en tenant compte de l'historique."""
         # 1. Vérification rapide locale (Fast Path) pour phrases triviales
         msg_clean = user_message.strip()
         lower = msg_clean.lower()
@@ -130,6 +149,106 @@ class ExtractorAgent:
                 "count_requested": 3,
                 "is_admin": True,
             }
+
+        # Fast-path Régénération de sélection (ex: "refais ma sélection", "mets à jour la sélection", "régénère le plan")
+        regeneration_phrases = [
+            "refais ma sélection", "refais la sélection", "refais selection", "refais ma selection",
+            "mets à jour ma sélection", "mets à jour la sélection", "mettre à jour la sélection",
+            "régénère le plan", "regenere le plan", "recalcule la sélection", "relance la sélection",
+            "actualise la sélection", "actualise le plan", "génère avec ça", "fais la sélection avec ça",
+            "refais le plan", "actualise mon plan"
+        ]
+        if any(p in lower for p in regeneration_phrases):
+            return {
+                "intent": "campaign_proposal",
+                "is_regeneration": True,
+                "refinement_action": None,
+                "pinned_panel_ids": [],
+                "excluded_panel_ids": [],
+                "client_name": client_fast,
+                "target_id": None,
+                "locations": [],
+                "axes": [],
+                "target_periods": [],
+                "province": None,
+                "direction": None,
+                "sector": None,
+                "contexte_pref": None,
+                "count_requested": 5,
+                "is_admin": is_admin,
+            }
+
+        # Fast-path Validation / Épinglage d'un panneau (ex: "ok pour la 108", "garde la 108", "je prends la 108", "valide le 108")
+        pin_match = re.search(r"(?:ok\s+pour|je\s+prends|garde|ajoute|valide|on\s+prend|retenons|retenir|choisis|choisit)\s+(?:la|le|le\s+panneau|la\s+remorque|panneau|remorque)?\s*#?([1-5]\d{2})\b", lower)
+        if pin_match:
+            pid = pin_match.group(1)
+            return {
+                "intent": "refine_campaign",
+                "refinement_action": "pin_panel",
+                "is_regeneration": False,
+                "pinned_panel_ids": [pid],
+                "excluded_panel_ids": [],
+                "client_name": client_fast,
+                "target_id": pid,
+                "locations": [],
+                "axes": [],
+                "target_periods": [],
+                "province": None,
+                "direction": None,
+                "sector": None,
+                "contexte_pref": None,
+                "count_requested": 5,
+                "is_admin": is_admin,
+            }
+
+        # Fast-path Exclusion / Retrait d'un panneau (ex: "pas la 323", "enlève le 323", "sans la 323", "retire le 323")
+        excl_match = re.search(r"(?:pas|enlève|enleve|sans|retire|supprime)\s+(?:la|le|le\s+panneau|la\s+remorque|panneau|remorque)?\s*#?([1-5]\d{2})\b", lower)
+        if excl_match:
+            pid = excl_match.group(1)
+            return {
+                "intent": "refine_campaign",
+                "refinement_action": "exclude_panel",
+                "is_regeneration": False,
+                "pinned_panel_ids": [],
+                "excluded_panel_ids": [pid],
+                "client_name": client_fast,
+                "target_id": pid,
+                "locations": [],
+                "axes": [],
+                "target_periods": [],
+                "province": None,
+                "direction": None,
+                "sector": None,
+                "contexte_pref": None,
+                "count_requested": 5,
+                "is_admin": is_admin,
+            }
+
+        # Fast-path Élargissement géographique vers une commune (ex: "élargis vers wavre", "étends vers wavre", "ajoute wavre", "et à wavre ?")
+        expand_match = re.search(r"(?:élargis|elargis|étends|etends|ajoute|regarde\s+aussi|cherche\s+aussi)\s+(?:vers|à|a|sur|la\s+zone\s+de)?\s*([A-Za-z0-9À-ÿ\s'-]+)", lower)
+        if not expand_match and re.match(r"^et\s+(?:à|a|vers|sur)\s+([A-Za-z0-9À-ÿ\s'-]+)", lower):
+            expand_match = re.search(r"^et\s+(?:à|a|vers|sur)\s+([A-Za-z0-9À-ÿ\s'-]+)", lower)
+        if expand_match:
+            exp_loc = expand_match.group(1).strip().strip("?.,!").title()
+            if exp_loc and len(exp_loc) >= 3 and not any(w in exp_loc.lower() for w in ["mois", "face", "panneau", "remorque", "client"]):
+                return {
+                    "intent": "refine_campaign",
+                    "refinement_action": "expand_zone",
+                    "is_regeneration": False,
+                    "pinned_panel_ids": [],
+                    "excluded_panel_ids": [],
+                    "client_name": client_fast,
+                    "target_id": None,
+                    "locations": [exp_loc],
+                    "axes": [],
+                    "target_periods": [],
+                    "province": None,
+                    "direction": None,
+                    "sector": None,
+                    "contexte_pref": None,
+                    "count_requested": 5,
+                    "is_admin": is_admin,
+                }
 
         # Fast-path indication exclusive du nom du client (ex: "Le client est Greenrobot" ou "Client : Brico")
         if client_fast and len(msg_clean.split()) <= 7 and not any(w in lower for w in ["face", "faces", "panneau", "remorque", "cherche", "dispo", "campagne", "plan"]):
@@ -204,6 +323,21 @@ class ExtractorAgent:
         # 2. Appel Gemini Flash pour extraction sémantique robuste
         candidate_models = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
 
+        history_context = ""
+        if conversation_history:
+            turns = []
+            for h in conversation_history[-6:]:
+                role = "Utilisateur" if h.get("role") == "user" else "Assistant M Move"
+                t = h.get("text") or (h.get("parts")[0].get("text") if h.get("parts") else "")
+                if t:
+                    turns.append(f"{role}: {t[:250]}")
+            if turns:
+                history_context = "HISTORIQUE RÉCENT DES ÉCHANGES :\n" + "\n".join(turns) + "\n\n"
+
+        prompt_text = f"{history_context}Dernier message de l'utilisateur : \"{user_message}\""
+        if active_context:
+            prompt_text += f"\nContexte actif de la sélection / campagne : {json.dumps(active_context, ensure_ascii=False)}"
+
         payload = {
             "system_instruction": {
                 "parts": [{"text": EXTRACTION_SYSTEM_PROMPT}]
@@ -211,13 +345,13 @@ class ExtractorAgent:
             "contents": [
                 {
                     "role": "user",
-                    "parts": [{"text": f"Message de l'utilisateur : \"{user_message}\""}]
+                    "parts": [{"text": prompt_text}]
                 }
             ],
             "generationConfig": {
                 "response_mime_type": "application/json",
                 "temperature": 0.1,
-                "maxOutputTokens": 500,
+                "maxOutputTokens": 600,
             }
         }
 
@@ -355,6 +489,10 @@ class ExtractorAgent:
 
         return {
             "intent": intent,
+            "refinement_action": None,
+            "is_regeneration": False,
+            "pinned_panel_ids": [],
+            "excluded_panel_ids": [],
             "client_name": client_name,
             "target_id": None,
             "locations": locations,

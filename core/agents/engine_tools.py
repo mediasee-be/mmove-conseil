@@ -619,11 +619,15 @@ class MmoveEngineTools:
         target_periods: Optional[List[str]] = None,
         count_per_month: int = 5,
         max_distance_km: float = 30.0,
-        axes: Optional[List[str]] = None
+        axes: Optional[List[str]] = None,
+        pinned_panel_ids: Optional[List[str]] = None,
+        excluded_panel_ids: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
         Génère une proposition de campagne publicitaire multi-mois avec rotation dynamique des faces.
         Règles :
+        - Prise en compte prioritaire des panneaux validés / épinglés (pinned_panel_ids).
+        - Exclusion stricte des panneaux rejetés (excluded_panel_ids).
         - Diversité stricte des axes routiers (au maximum 1 panneau par axe par mois).
         - Rotation anti-doublon consécutif : interdit de placer 2 mois de suite le client sur le même panneau/direction.
         - Calcul d'impact cumulé (OTS, véhicules/jour) et rétroplanning bâche au 15 du mois précédent.
@@ -642,6 +646,9 @@ class MmoveEngineTools:
             periods = [f"{next_y}-{next_m:02d}"]
         else:
             periods = sorted(list(dict.fromkeys(target_periods)))
+
+        pinned_clean = [str(pid).strip().replace("#", "") for pid in (pinned_panel_ids or []) if str(pid).strip()]
+        excluded_clean = {str(pid).strip().replace("#", "") for pid in (excluded_panel_ids or []) if str(pid).strip()}
 
         def get_axis_sig(c: Dict[str, Any]) -> str:
             cr = (c.get("code_route") or "").upper().strip()
@@ -667,24 +674,72 @@ class MmoveEngineTools:
                 axes=axes,
                 target_periods=[period],
                 max_distance_km=max_distance_km,
-                top_k=40,
+                top_k=50,
                 enforce_axis_diversity=False
             )
 
-            fresh_candidates = [c for c in candidates if str(c["id"]) not in used_in_prev_month]
-            reuse_candidates = [c for c in candidates if str(c["id"]) in used_in_prev_month]
+            # Filtrer les panneaux exclus
+            if excluded_clean:
+                candidates = [c for c in candidates if str(c["id"]) not in excluded_clean]
 
             selected = []
             seen_axes = set()
 
+            # 0. Priorité absolue : Insérer les panneaux épinglés (pinned) s'ils sont disponibles pour ce mois
+            for pid in pinned_clean:
+                if len(selected) >= count_per_month:
+                    break
+                # Chercher dans les candidats actuels
+                c_match = next((c for c in candidates if str(c["id"]) == pid), None)
+                if not c_match:
+                    # Chercher directement dans le parc global si dispo ce mois-ci
+                    t_obj = self.get_trailer_by_id(pid)
+                    if t_obj:
+                        t_avail = self.check_period_availability(t_obj, [period])
+                        if t_avail.get("is_available_any"):
+                            photo = t_obj.get("photo_in") or "https://remorquepublicitaire.be/wp-content/uploads/2021/07/logo-mmove.png"
+                            c_match = {
+                                "id": t_obj["id"],
+                                "ville": t_obj["ville"],
+                                "localisation": t_obj["localisation"],
+                                "province": t_obj["province"],
+                                "axe_routier": t_obj["axe_routier"],
+                                "code_route": t_obj.get("code_route"),
+                                "direction_in": t_obj["direction_in"],
+                                "direction_out": t_obj["direction_out"],
+                                "frequentation_jour": t_obj["frequentation_jour"],
+                                "ots_mensuel": t_obj["ots_mensuel"],
+                                "score_impact": t_obj.get("score_impact", "Élevé"),
+                                "contexte_visibilite": t_obj.get("contexte_visibilite"),
+                                "lien": t_obj["lien"],
+                                "distance_km": None,
+                                "prochaine_dispo": t_obj.get("prochaine_dispo"),
+                                "prochaine_dispo_in": t_obj.get("prochaine_dispo_in"),
+                                "prochaine_dispo_out": t_obj.get("prochaine_dispo_out"),
+                                "prochaine_dispo_human": format_period_human(t_obj.get("prochaine_dispo")),
+                                "prochaine_dispo_label": get_friendly_dispo_label(t_obj),
+                                "target_period_human": format_period_human(period),
+                                "is_available_in_target_period": True,
+                                "availability": t_avail,
+                                "photo_url": photo,
+                                "is_direct_match": True,
+                                "total_score": 100.0,
+                            }
+                if c_match and str(c_match["id"]) not in {str(s["id"]) for s in selected}:
+                    selected.append(c_match)
+                    seen_axes.add(get_axis_sig(c_match))
+
+            fresh_candidates = [c for c in candidates if str(c["id"]) not in used_in_prev_month and str(c["id"]) not in {str(s["id"]) for s in selected}]
+            reuse_candidates = [c for c in candidates if str(c["id"]) in used_in_prev_month and str(c["id"]) not in {str(s["id"]) for s in selected}]
+
             # 1. Priorité aux candidats frais non utilisés le mois précédent avec axes distincts
             for c in fresh_candidates:
+                if len(selected) >= count_per_month:
+                    break
                 sig = get_axis_sig(c)
                 if sig not in seen_axes:
                     seen_axes.add(sig)
                     selected.append(c)
-                    if len(selected) == count_per_month:
-                        break
 
             # 2. Compléter avec les candidats frais restants si moins d'axes que de panneaux demandés
             if len(selected) < count_per_month:

@@ -863,6 +863,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
             const logsText = generateLogsText();
             ta.value = logsText;
             modal.classList.remove('hidden');
+            modal.classList.add('flex');
 
             try {
                 await navigator.clipboard.writeText(logsText);
@@ -879,7 +880,10 @@ class MmoveHandler(BaseHTTPRequestHandler):
 
         function closeConversationLogsModal() {
             const modal = document.getElementById('logsModal');
-            if (modal) modal.classList.add('hidden');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
         }
 
         async function copyConversationLogs() {
@@ -1711,6 +1715,8 @@ class MmoveHandler(BaseHTTPRequestHandler):
                 card.classList.add('ring-2', 'ring-[#F4920D]', 'bg-amber-50/50', 'dark:bg-amber-950/20');
                 card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
+        }
+
         // ==========================================
         // AUTHENTIFICATION GOOGLE WORKSPACE & PROFIL
         // ==========================================
@@ -1721,7 +1727,9 @@ class MmoveHandler(BaseHTTPRequestHandler):
         async function initAuth() {
             // Vérifier session locale persistée
             const savedUserStr = localStorage.getItem('mmove_auth_user');
-            if (savedUserStr) {
+            const hasLoggedOut = localStorage.getItem('mmove_logged_out') === '1';
+
+            if (savedUserStr && !hasLoggedOut) {
                 try {
                     currentUser = JSON.parse(savedUserStr);
                 } catch(e) {
@@ -1729,8 +1737,28 @@ class MmoveHandler(BaseHTTPRequestHandler):
                 }
             }
 
+            // Si aucune session n'est enregistrée et qu'on n'a pas explicitement cliqué sur déconnexion
+            if ((!currentUser || !currentUser.id) && !hasLoggedOut) {
+                try {
+                    const res = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: 'corentin@mediasee.be' })
+                    });
+                    const data = await res.json();
+                    if (data.status === 'ok') {
+                        currentUser = data.user;
+                        localStorage.setItem('mmove_auth_user', JSON.stringify(currentUser));
+                        localStorage.setItem('mmove_salesperson_id', currentUser.id);
+                    }
+                } catch(e) {
+                    console.warn("Auto-connexion Corentin:", e);
+                }
+            }
+
             if (currentUser && currentUser.id) {
                 onUserAuthenticated(currentUser);
+                hideLoginModal();
             } else {
                 showLoginModal();
             }
@@ -1769,12 +1797,18 @@ class MmoveHandler(BaseHTTPRequestHandler):
 
         function showLoginModal() {
             const modal = document.getElementById('loginModal');
-            if (modal) modal.classList.remove('hidden');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
         }
 
         function hideLoginModal() {
             const modal = document.getElementById('loginModal');
-            if (modal) modal.classList.add('hidden');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
         }
 
         async function handleGoogleCredentialResponse(response) {
@@ -1814,6 +1848,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
                     currentUser = data.user;
                     localStorage.setItem('mmove_auth_user', JSON.stringify(currentUser));
                     localStorage.setItem('mmove_salesperson_id', currentUser.id);
+                    localStorage.removeItem('mmove_logged_out');
                     onUserAuthenticated(currentUser);
                     hideLoginModal();
                     showLogsToast(`✓ Connecté : ${currentUser.name} (${currentUser.is_admin ? 'Admin' : 'Conseiller'})`);
@@ -1916,6 +1951,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
             currentUser = null;
             localStorage.removeItem('mmove_auth_user');
             localStorage.removeItem('mmove_salesperson_id');
+            localStorage.setItem('mmove_logged_out', '1');
             const menu = document.getElementById('userDropdownMenu');
             if (menu) menu.classList.add('hidden');
             showLoginModal();
@@ -2109,7 +2145,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
     </div>
 
     <!-- MODAL LOGS DE CONVERSATION (Discret) -->
-    <div id="logsModal" onclick="if(event.target === this) closeConversationLogsModal()" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+    <div id="logsModal" onclick="if(event.target === this) closeConversationLogsModal()" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 backdrop-blur-xs p-4">
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in duration-200">
             <!-- Modal Header -->
             <div class="px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/60">
@@ -2201,7 +2237,7 @@ class MmoveHandler(BaseHTTPRequestHandler):
     </aside>
 
     <!-- ÉCRAN D'AUTHENTIFICATION GOOGLE WORKSPACE (@mediasee.be) -->
-    <div id="loginModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4">
+    <div id="loginModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/80 backdrop-blur-md p-4">
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <!-- Header Logo & Titre -->
             <div class="p-6 text-center border-b border-slate-100 dark:border-slate-800 bg-gradient-to-b from-amber-500/5 to-transparent">

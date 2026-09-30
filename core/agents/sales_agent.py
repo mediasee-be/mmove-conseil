@@ -11,6 +11,7 @@ import json
 import ssl
 import urllib.request
 from typing import Dict, Any, List, Optional
+from core.agents.engine_tools import format_period_human
 
 DEFAULT_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
@@ -30,10 +31,26 @@ Tu es l'**Agent Commercial Expert** de la société **M Move** (remorquepublicit
 * **RÈGLES D'OR DE RÉDACTION :**
   - **PARLER EN PANNEAUX ET EN FACES :** Parle toujours en termes de "panneaux" (panneaux 8m², emplacements) et communique sur le nombre de faces (266 faces en Wallonie, 2 faces par panneau). Ne dis pas "remorques" sauf si l'utilisateur l'évoque directement.
   - **VAS DROIT À L'ESSENTIEL :** Pas de remplissage. Sois clair, concis et efficace.
-  - **PAS DE GRAS PARTOUT :** Soulage la lecture. N'utilise JAMAIS de gras sur les étiquettes ("Disponible dès", "Direction", "Trafic", "Contexte") ni sur chaque valeur. Réserve le gras uniquement pour le nom du panneau s'il n'est pas déjà dans un lien.
+  - **PAS DE GRAS PARTOUT :** Soulage la lecture. N'utilise JAMAIS de gras sur les étiquettes ("Disponible dès", "Disponibilité", "Direction", "Trafic", "Contexte", "Rôle") ni sur chaque valeur. Réserve le gras uniquement pour le nom du panneau s'il n'est pas déjà dans un lien, ou pour le titre de campagne et le total d'impact.
   - **SUPPRIME "Implantation directe" :** Ne mentionne JAMAIS "Implantation directe".
   - **AUCUNE "Face IN" OU "Face OUT" :** Parle UNIQUEMENT en termes de Direction de circulation (ex: Direction : Namur).
   - **RÉPONSE EN BULLET POINTS :** Présente chaque panneau de manière structurée et aérée.
+
+* **PROPOSITION DE PLAN DE CAMPAGNE (Demande multi-faces / volume + période, ex: "campagne de 5 faces à Gembloux en janvier") :**
+  - Titre clair : **Plan de campagne 8m² : [N] faces autour de [Ville] — [Période]**
+  - Introduction sobre valorisant le maillage territorial multi-axes (chacun des [N] panneaux est positionné sur un axe routier distinct sans aucun doublon pour capter tous les flux d'accès).
+  - Liste à puces structurée des [N] panneaux :
+    • [#ID - Ville - Localisation ↗️](lien) — Direction [Direction] (à [X] km)
+      - Disponibilité : ✅ Libre en [Mois Année] (confirme explicitement la disponibilité sur la période demandée)
+      - Trafic : [frequentation] véh./jour (~[ots] OTS/mois)
+      - Rôle : [Axe routier et atout de captage du flux]
+  - Bloc d'impact cumulé de la campagne :
+    **Impact cumulé de la campagne :**
+    * [Total véh/j] véhicules / jour en visibilité directe.
+    * ~[Total OTS] d'occasions de voir (OTS) sur le mois de [Période].
+  - Rétroplanning bâche (OBLIGATOIRE pour une campagne) :
+    🗓️ Rétroplanning : Pour un démarrage le 1er [Mois], la remise des fichiers d'impression (format 390x200 cm) est fixée au 15 [Mois précédent].
+  - Appel à l'action commercial sobre (optionner la sélection / ajustement).
 
 * **DEMANDE DE LOCALISATION ("remorques à...", "panneaux à...", recherche par ville) :**
   - Trie TOUJOURS les emplacements par DISTANCE CROISSANTE (le plus proche en premier : 0 km, 0.14 km, 1.28 km, etc.).
@@ -168,6 +185,16 @@ Rédige maintenant ta réponse commerciale selon les règles strictes suivantes 
 6. Pour toute demande de localisation ("remorques à...", "panneaux à...", recherche par ville) :
    - Trie OBLIGATOIREMENT les réponses par DISTANCE CROISSANTE (le plus proche en km en premier : 0 km, 0.14 km, 1.28 km...).
    - Indique clairement la distance (ex: à 0.14 km, à 1.28 km) après la direction.
+7. Si l'intention est une proposition de campagne ("campaign_proposal") :
+   - Titre clair : **Plan de campagne 8m² : {len(candidate_panels)} faces autour de {extracted_info.get('locations', ['Wallonie'])[0] if extracted_info.get('locations') else 'Wallonie'} — {format_period_human(extracted_info.get('target_periods', [None])[0]) if extracted_info.get('target_periods') else 'À convenir'}**
+   - Introduction sobre valorisant le maillage territorial multi-axes sans aucun doublon d'axe.
+   - Pour chaque panneau :
+     • [#ID - Ville - Localisation ↗️](lien) — Direction [Direction] (à [X] km)
+       - Disponibilité : ✅ Libre en {format_period_human(extracted_info.get('target_periods', [None])[0]) if extracted_info.get('target_periods') else 'période souhaitée'}
+       - Trafic : [frequentation] véh./jour (~[ots] OTS/mois)
+       - Rôle : [Axe et couverture du flux]
+   - Bloc d'impact cumulé chiffré (total véhicules/jour et total OTS mensuels).
+   - Rétroplanning bâche (remise des fichiers format 390x200 cm avant le 15 du mois précédent).
 """
 
         # Construction de l'historique de conversation
@@ -226,7 +253,73 @@ Rédige maintenant ta réponse commerciale selon les règles strictes suivantes 
         loc_str = f" à {', '.join(loc_list)}" if loc_list else ""
         user_mentions_face = any(w in msg_lower for w in ["face in", "face out", "faces in", "faces out", "face a", "face b", "face "])
         
-        if is_dispo_query:
+        if intent == "campaign_proposal":
+            target_period_str = extracted.get("target_periods", [None])[0] if extracted.get("target_periods") else None
+            period_human = format_period_human(target_period_str) if target_period_str else "Prochainement"
+            
+            # Calcul du rétroplanning au 15 du mois précédent
+            deadline_str = ""
+            if target_period_str:
+                try:
+                    parts = target_period_str.split("-")
+                    year = int(parts[0])
+                    month = int(parts[1])
+                    prev_month = 12 if month == 1 else month - 1
+                    month_names = ["", "janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"]
+                    curr_month_name = month_names[month]
+                    prev_month_name = month_names[prev_month]
+                    deadline_str = f"🗓️ Rétroplanning : Pour un démarrage le 1er {curr_month_name}, la remise des fichiers d'impression (format 390x200 cm) est fixée au 15 {prev_month_name}."
+                except Exception:
+                    deadline_str = "🗓️ Rétroplanning : Remise des fichiers d'impression (format 390x200 cm) avant le 15 du mois précédent."
+
+            n_faces = len(panels)
+            title = f"Plan de campagne 8m² : {n_faces} faces{loc_str} — {period_human}"
+            intro = f"**{title}**\n\nPour assurer un maillage optimal de votre zone de chalandise, voici une sélection stratégique de {n_faces} faces réparties sur des axes complémentaires sans aucun doublon d'axe :\n"
+            lines = [intro]
+
+            total_freq = 0
+            total_ots = 0
+
+            for p in panels:
+                dist_km = p.get("distance_km")
+                dist_str = f" (à {dist_km} km)" if (dist_km is not None and dist_km > 0) else ""
+                freq = p.get("frequentation_jour") or 0
+                ots = p.get("ots_mensuel") or int(freq * 30 * 1.2)
+                total_freq += freq
+                total_ots += ots
+
+                freq_str = f"{freq:,}".replace(",", " ")
+                ots_str = f"{ots:,}".replace(",", " ")
+                direction = p.get("direction_in") or p.get("direction_out") or "Double sens"
+                dispo_label = f"✅ Libre en {period_human}" if target_period_str else (p.get("prochaine_dispo_human") or "Disponible")
+
+                contexte = p.get('contexte_visibilite') or ''
+                contexte_clean = re.sub(r"^\[Zoning\]\s*", "", contexte)
+                axe_code = p.get("code_route") or p.get("axe_routier") or ""
+
+                role_str = f"Axe {axe_code} — {contexte_clean}" if axe_code else contexte_clean
+
+                lines.append(
+                    f"• [#{p['id']} - {p['ville']} - {p['localisation']} ↗️]({p['lien']}) — Direction {direction}{dist_str}\n"
+                    f"  - Disponibilité : {dispo_label}\n"
+                    f"  - Trafic : {freq_str} véh./jour (~{ots_str} OTS/mois)\n"
+                    f"  - Rôle : {role_str}\n"
+                )
+
+            total_freq_str = f"{total_freq:,}".replace(",", " ")
+            total_ots_str = f"{total_ots:,}".replace(",", " ")
+            lines.append(
+                f"**Impact cumulé de la campagne :**\n"
+                f"* {total_freq_str} véhicules / jour en visibilité directe.\n"
+                f"* ~{total_ots_str} d'occasions de voir (OTS) sur le mois de {period_human}.\n"
+            )
+
+            if deadline_str:
+                lines.append(deadline_str + "\n")
+
+            lines.append("Souhaitez-vous que je bloque une option sur cette sélection ou que nous ajustions l'un des emplacements ?")
+            return "\n".join(lines)
+        elif is_dispo_query:
             # Priorité aux correspondances directes sur la localité, puis tri par date chronologique (plus proche en premier)
             has_direct = any(p.get("is_direct_match") for p in panels)
             if has_direct:

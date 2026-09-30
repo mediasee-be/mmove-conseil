@@ -111,6 +111,22 @@ class CoordinatorAgent:
                 require_availability=False
             )
 
+        elif intent == "campaign_proposal":
+            # Recommandation de plan de campagne (multi-faces, diversité stricte d'axes, période ciblée)
+            target_periods = extracted.get("target_periods", [])
+            req_dispo = len(target_periods) > 0
+            candidate_panels = self.engine.search_and_rank(
+                locations=extracted.get("locations"),
+                axes=extracted.get("axes"),
+                target_periods=target_periods,
+                province=extracted.get("province"),
+                direction=extracted.get("direction"),
+                contexte_query=extracted.get("contexte_pref") or extracted.get("sector"),
+                top_k=extracted.get("count_requested", 5),
+                require_availability=req_dispo,
+                enforce_axis_diversity=True
+            )
+
         else:
             # Recherche géographique & critères (search_panels ou check_availability par zone)
             target_periods = extracted.get("target_periods", [])
@@ -172,7 +188,11 @@ class CoordinatorAgent:
             if not user_mentions_face and friendly_dispo:
                 friendly_dispo = re.sub(r"\s*\(Face[^\)]*\)", "", str(friendly_dispo), flags=re.IGNORECASE).strip()
 
-            dispo_label = ", ".join([m["period_human"] for m in avail_months]) if avail_months else friendly_dispo
+            if p.get("target_period_human") and p.get("is_available_in_target_period"):
+                dispo_label = f"Libre en {p['target_period_human']}"
+                friendly_dispo = f"Libre en {p['target_period_human']}"
+            else:
+                dispo_label = ", ".join([m["period_human"] for m in avail_months]) if avail_months else friendly_dispo
             
             frontend_panels.append({
                 "remorque": p["id"],

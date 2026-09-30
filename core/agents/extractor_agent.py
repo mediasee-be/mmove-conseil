@@ -9,6 +9,7 @@ import re
 import json
 import ssl
 import urllib.request
+from datetime import datetime
 from typing import Dict, Any, Optional
 
 DEFAULT_API_KEY = os.environ.get("GEMINI_API_KEY", "")
@@ -20,7 +21,8 @@ Année de référence : 2026 (les dates sans année font référence à 2026, ou
 
 ### RÈGLES D'EXTRACTION :
 1. "intent" :
-   - "search_panels" : demande de remorques / recherche géographique / projet de campagne
+   - "campaign_proposal" : proposition d'un plan de campagne publicitaire / multi-faces (ex: "propose-moi une campagne de 5 faces autour de Gembloux en janvier", "plan média", "sélection de campagne")
+   - "search_panels" : demande de remorques / recherche géographique simple
    - "check_availability" : question sur quand un panneau ou un lieu est libre (ex: "quand est libre le 114 ?")
    - "identify_panel" : identification (ex: "c'est quel panneau près de la clinique ?")
    - "creative_advice" : conseil sur le visuel, les slogans, la charte graphique
@@ -35,11 +37,10 @@ Année de référence : 2026 (les dates sans année font référence à 2026, ou
 4. "axes" : Axes routiers mentionnés (ex: ["N4", "E411", "E42", "N25", "N29", "N89", "N90"])
 
 5. "target_periods" : Liste des mois au format "AAAA-MM".
-   - "mai" -> ["2026-05"]
-   - "fin d'année" ou "dernier trimestre" -> ["2026-10", "2026-11", "2026-12"]
-   - "printemps" -> ["2026-03", "2026-04", "2026-05"]
-   - "été" -> ["2026-06", "2026-07", "2026-08"]
-   - Si aucune date n'est précisée, laisser []
+   - Nous sommes actuellement fin 2026.
+   - Les mois futurs de début d'année (janvier à septembre) sont en 2027 : "janvier" -> ["2027-01"], "mars" -> ["2027-03"].
+   - Les mois de fin d'année en cours : "octobre" -> ["2026-10"], "novembre" -> ["2026-11"], "décembre" -> ["2026-12"].
+   - Si aucune date n'est précisée, laisser [].
 
 6. "province" : Province wallonne ("Liège", "Namur", "Hainaut", "Luxembourg", "Brabant-Wallon") si mentionnée
 
@@ -47,7 +48,7 @@ Année de référence : 2026 (les dates sans année font référence à 2026, ou
 
 8. "contexte_pref" : Contexte de visibilité recherché (ex: "zoning", "rond-point", "bouchons", "ralentissement", "centre commercial")
 
-9. "count_requested" : Nombre de remorques souhaitées (ex: "3 panneaux" -> 3, par défaut 3)
+9. "count_requested" : Nombre de faces ou panneaux souhaités (ex: "5 face" -> 5, "3 panneaux" -> 3, par défaut 3)
 
 10. "is_admin" : true si l'utilisateur mentionne "Corentin", "admin" ou "debug"
 
@@ -226,21 +227,37 @@ class ExtractorAgent:
             "mai": "05", "juin": "06", "juillet": "07", "août": "08", "aout": "08",
             "septembre": "09", "octobre": "10", "novembre": "11", "décembre": "12", "decembre": "12"
         }
+        # Détermination dynamique de l'année cible (ex: si nous sommes en sept 2026, janvier -> 2027)
+        now = datetime.now()
+        cur_year = now.year
+        cur_month = now.month
         for m_name, m_num in month_dict.items():
             if m_name in lower:
-                periods.append(f"2026-{m_num}")
+                m_int = int(m_num)
+                target_year = cur_year + 1 if m_int < cur_month else cur_year
+                periods.append(f"{target_year}-{m_num}")
 
         count = 3
-        c_match = re.search(r"(\d+)\s*(?:panneaux|remorques)", lower)
+        c_match = re.search(r"(\d+)\s*(?:panneaux|panneau|remorques|remorque|faces|face|emplacements|emplacement|spots|spot)", lower)
         if c_match:
             try:
                 count = int(c_match.group(1))
             except ValueError:
                 pass
 
-        intent = "search_panels"
-        if any(k in lower for k in ["dispo", "disponibilité", "disponibilites", "libre", "quand", "prochaine"]):
+        # Détection d'une intention de proposition de campagne
+        is_campaign = (
+            any(k in lower for k in ["campagne", "plan média", "plan media", "pack", "selection", "sélection"])
+            or ("face" in lower and count > 1)
+            or (count >= 3 and len(periods) > 0)
+        )
+
+        if is_campaign:
+            intent = "campaign_proposal"
+        elif any(k in lower for k in ["dispo", "disponibilité", "disponibilites", "libre", "quand", "prochaine"]):
             intent = "check_availability"
+        else:
+            intent = "search_panels"
 
         return {
             "intent": intent,

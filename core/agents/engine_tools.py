@@ -373,7 +373,8 @@ class MmoveEngineTools:
         max_distance_km: float = 25.0,
         top_k: int = 5,
         require_availability: bool = True,
-        sort_by_dispo: bool = False
+        sort_by_dispo: bool = False,
+        enforce_axis_diversity: bool = False
     ) -> List[Dict[str, Any]]:
         """
         Moteur de filtrage et scoring multi-critères.
@@ -512,6 +513,9 @@ class MmoveEngineTools:
                 "prochaine_dispo_out": t.get("prochaine_dispo_out"),
                 "prochaine_dispo_human": format_period_human(t.get("prochaine_dispo")),
                 "prochaine_dispo_label": get_friendly_dispo_label(t),
+                "target_period": clean_periods[0] if clean_periods else None,
+                "target_period_human": format_period_human(clean_periods[0]) if clean_periods else None,
+                "is_available_in_target_period": avail_info.get("is_available_any") if clean_periods else True,
                 "availability": avail_info,
                 "photo_url": photo,
                 "is_direct_match": has_direct_physical_match,
@@ -519,7 +523,60 @@ class MmoveEngineTools:
             }
             candidates.append(candidate_obj)
 
-        if sort_by_dispo:
+        if enforce_axis_diversity:
+            # Recommandation de campagne : Tri par proximité / score puis DIVERSITÉ STRICTE DES AXES (Zéro doublon d'axe)
+            if clean_loc_queries or target_coords:
+                candidates.sort(
+                    key=lambda x: (
+                        x.get("distance_km") if x.get("distance_km") is not None else 9999.0,
+                        not x.get("is_direct_match", False),
+                        -x["total_score"]
+                    )
+                )
+            else:
+                candidates.sort(key=lambda x: (x.get("is_direct_match", False), x["total_score"]), reverse=True)
+
+            def get_axis_signature(item: Dict[str, Any]) -> str:
+                code = (item.get("code_route") or "").upper().strip()
+                if code and len(code) >= 2:
+                    m = re.match(r"([A-Z]\d+)", code)
+                    if m:
+                        return m.group(1)
+                    return code
+                axe = (item.get("axe_routier") or "").upper().strip()
+                m_axe = re.search(r"\b([A-Z]\d+)\b", axe)
+                if m_axe:
+                    return m_axe.group(1)
+                clean_axe = normalize_text(axe)
+                if clean_axe:
+                    return clean_axe
+                return item.get("id")
+
+            selected = []
+            seen_axes = set()
+
+            # Passe 1 : Un seul panneau par axe routier distinct
+            for c in candidates:
+                sig = get_axis_signature(c)
+                if sig not in seen_axes:
+                    seen_axes.add(sig)
+                    selected.append(c)
+                    if len(selected) == top_k:
+                        break
+
+            # Passe 2 : S'il y a moins d'axes distincts que de panneaux demandés dans le rayon,
+            # compléter avec les meilleurs restants sur des localisations différentes
+            if len(selected) < top_k:
+                selected_ids = {s["id"] for s in selected}
+                for c in candidates:
+                    if c["id"] not in selected_ids:
+                        selected.append(c)
+                        selected_ids.add(c["id"])
+                        if len(selected) == top_k:
+                            break
+
+            return selected
+        elif sort_by_dispo:
             # 1. Demande de disponibilité : Sélection géographique puis tri chronologique (plus proche dans le temps en premier)
             candidates.sort(key=lambda x: (x.get("is_direct_match", False), x["total_score"]), reverse=True)
             selected = candidates[:top_k]

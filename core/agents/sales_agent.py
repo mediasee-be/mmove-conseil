@@ -47,7 +47,7 @@ Tu es l'**Agent Commercial Expert** de la société **M Move** (remorquepublicit
   - Bloc d'impact cumulé de la campagne :
     **Impact cumulé de la campagne :**
     * [Total véh/j] véhicules / jour en visibilité directe.
-    * ~[Total OTS] d'occasions de voir (OTS) sur le mois de [Période].
+    * ~[Total OTS] occasions d'être vu (OTS) sur le mois de [Période].
   - Rétroplanning bâche (OBLIGATOIRE pour une campagne) :
     🗓️ Rétroplanning : Pour un démarrage le 1er [Mois], la remise des fichiers d'impression (format 390x200 cm) est fixée au 15 [Mois précédent].
   - Appel à l'action commercial sobre (optionner la sélection / ajustement).
@@ -311,7 +311,7 @@ Rédige maintenant ta réponse commerciale selon les règles strictes suivantes 
             lines.append(
                 f"**Impact cumulé de la campagne :**\n"
                 f"* {total_freq_str} véhicules / jour en visibilité directe.\n"
-                f"* ~{total_ots_str} d'occasions de voir (OTS) sur le mois de {period_human}.\n"
+                f"* ~{total_ots_str} occasions d'être vu (OTS) sur le mois de {period_human}.\n"
             )
 
             if deadline_str:
